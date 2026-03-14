@@ -1237,14 +1237,14 @@ function showShareModal(longUrl, shortUrl) {
         ? `<div style="margin-top:10px">
              <button class="share-close" id="shorten-btn"
                style="margin-top:0;color:rgba(201,168,76,0.9);border-color:rgba(201,168,76,0.35)">
-               ✦ Shorten with TinyURL
+               ✦ Shorten link
              </button>
            </div>`
-        : `<div class="share-note" style="margin-top:10px;color:rgba(74,103,65,0.9)">✓ Shortened via TinyURL</div>`
+        : `<div class="share-note" style="margin-top:10px;color:rgba(74,103,65,0.9)">✓ Link shortened</div>`
       }
       <div class="share-note">
         Data is encoded in the URL — no server stores your cases.
-        ${isShortened ? 'TinyURL stores only the forwarding address, not your case data.' : ''}
+        ${isShortened ? 'JSONBlob stores your data temporarily — links expire after 30 days of inactivity.' : ''}
       </div>
       <button class="share-close" onclick="this.closest('.share-overlay').remove()">Close</button>
     </div>
@@ -1261,19 +1261,28 @@ function showShareModal(longUrl, shortUrl) {
 
 async function shortenUrl(longUrl) {
   const btn = document.getElementById('shorten-btn');
-  btn.textContent = 'Shortening…';
+  btn.textContent = 'Saving…';
   btn.disabled = true;
   try {
-    const api  = `https://tinyurl.com/api-create.php?url=${encodeURIComponent(longUrl)}`;
-    const resp = await fetch(api);
+    // JSONBlob: stores raw JSON and returns an ID — CORS-friendly, no auth needed
+    const resp = await fetch('https://jsonblob.com/api/jsonBlob', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify(caseData)
+    });
     if (!resp.ok) throw new Error('API error');
-    const short = await resp.text();
-    if (!short.startsWith('https://tinyurl.com')) throw new Error('Bad response');
-    showShareModal(longUrl, short.trim());
+    // The blob ID is in the Location header, e.g. https://jsonblob.com/api/jsonBlob/abc123
+    const location = resp.headers.get('Location') || '';
+    const blobId   = location.split('/').pop();
+    if (!blobId) throw new Error('No blob ID');
+    // Build a short share URL using the blob ID instead of inline data
+    const base     = window.location.href.split('#')[0];
+    const shortUrl = base + '#blob=' + blobId;
+    showShareModal(longUrl, shortUrl);
   } catch(e) {
-    btn.textContent = '✦ Shorten with TinyURL';
+    btn.textContent = '✦ Shorten link';
     btn.disabled = false;
-    alert('Could not reach TinyURL — try copying the full link instead.');
+    alert('Could not shorten the link — try copying the full URL instead.');
   }
 }
 
@@ -1295,31 +1304,41 @@ function copyShareUrl() {
   });
 }
 
-function loadFromUrl() {
+async function loadFromUrl() {
   try {
     const hash = window.location.hash;
-    if (!hash.startsWith('#data=')) return false;
-    const encoded = hash.slice(6);
-    const json    = decodeURIComponent(atob(encoded));
-    const data    = JSON.parse(json);
-    if (Array.isArray(data) && data.length) {
-      caseData = data;
-      return true;
+    if (hash.startsWith('#data=')) {
+      // Legacy inline-encoded data
+      const encoded = hash.slice(6);
+      const json    = decodeURIComponent(atob(encoded));
+      const data    = JSON.parse(json);
+      if (Array.isArray(data) && data.length) { caseData = data; return true; }
+    } else if (hash.startsWith('#blob=')) {
+      // JSONBlob-stored data
+      const blobId = hash.slice(6);
+      const resp   = await fetch('https://jsonblob.com/api/jsonBlob/' + blobId,
+        { headers: { 'Accept': 'application/json' } });
+      if (!resp.ok) throw new Error('Blob fetch failed');
+      const data = await resp.json();
+      if (Array.isArray(data) && data.length) { caseData = data; return true; }
     }
   } catch(e) {}
   return false;
 }
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
-if (loadFromUrl()) {
-  renderAll();
-  updateSaveLabel();
-} else if (loadFromStorage()) {
-  renderAll();
-  updateSaveLabel();
-} else {
-  renderAll();
-}
+(async () => {
+  const fromUrl = await loadFromUrl();
+  if (fromUrl) {
+    renderAll();
+    updateSaveLabel();
+  } else if (loadFromStorage()) {
+    renderAll();
+    updateSaveLabel();
+  } else {
+    renderAll();
+  }
+})();
 </script>
 </body>
 </html>
