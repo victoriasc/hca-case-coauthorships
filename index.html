@@ -1207,34 +1207,69 @@ function exportGraph(which) {
 
 // ── SHARE ─────────────────────────────────────────────────────────────────────
 
+function buildLongUrl() {
+  const json    = JSON.stringify(caseData);
+  const encoded = btoa(encodeURIComponent(json));
+  return window.location.href.split('#')[0] + '#data=' + encoded;
+}
+
+function showShareModal(longUrl, shortUrl) {
+  // Remove any existing modal
+  document.querySelectorAll('.share-overlay').forEach(el => el.remove());
+
+  const displayUrl  = shortUrl || longUrl;
+  const isShortened = !!shortUrl;
+
+  const overlay = document.createElement('div');
+  overlay.className = 'share-overlay';
+  overlay.innerHTML = `
+    <div class="share-modal">
+      <div class="share-modal-title">Share your cases</div>
+      <div class="share-modal-sub">Anyone with this link will see your data pre-loaded</div>
+      <div class="share-url-box">
+        <input class="share-url-input" id="share-url-val" readonly value="${displayUrl}">
+        <button class="share-copy-btn" id="share-copy-btn" onclick="copyShareUrl()">Copy</button>
+      </div>
+      ${!isShortened ? `
+        <div style="margin-top:10px">
+          <button class="share-close" style="margin-top:0;color:rgba(201,168,76,0.8);border-color:rgba(201,168,76,0.3)" id="shorten-btn" onclick="shortenUrl('${longUrl}')">
+            ✦ Shorten with TinyURL
+          </button>
+        </div>
+      ` : `<div class="share-note" style="margin-top:10px;color:rgba(74,103,65,0.9)">✓ Shortened via TinyURL</div>`}
+      <div class="share-note">
+        Data is encoded in the URL — no server stores your cases.
+        ${isShortened ? 'TinyURL stores only the forwarding address, not your case data.' : ''}
+      </div>
+      <button class="share-close" onclick="this.closest('.share-overlay').remove()">Close</button>
+    </div>
+  `;
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+  document.body.appendChild(overlay);
+}
+
+async function shortenUrl(longUrl) {
+  const btn = document.getElementById('shorten-btn');
+  btn.textContent = 'Shortening…';
+  btn.disabled = true;
+  try {
+    const api  = `https://tinyurl.com/api-create.php?url=${encodeURIComponent(longUrl)}`;
+    const resp = await fetch(api);
+    if (!resp.ok) throw new Error('API error');
+    const short = await resp.text();
+    if (!short.startsWith('https://tinyurl.com')) throw new Error('Bad response');
+    showShareModal(longUrl, short.trim());
+  } catch(e) {
+    btn.textContent = '✦ Shorten with TinyURL';
+    btn.disabled = false;
+    alert('Could not reach TinyURL — try copying the full link instead.');
+  }
+}
+
 function shareLink() {
   if (!caseData.length) { alert('Add some cases first before sharing.'); return; }
   try {
-    const json    = JSON.stringify(caseData);
-    const encoded = btoa(encodeURIComponent(json));
-    const url     = window.location.href.split('#')[0] + '#data=' + encoded;
-
-    // Build modal
-    const overlay = document.createElement('div');
-    overlay.className = 'share-overlay';
-    overlay.innerHTML = `
-      <div class="share-modal">
-        <div class="share-modal-title">Share your cases</div>
-        <div class="share-modal-sub">Anyone with this link will see your data pre-loaded</div>
-        <div class="share-url-box">
-          <input class="share-url-input" id="share-url-val" readonly value="${url}">
-          <button class="share-copy-btn" onclick="copyShareUrl()">Copy</button>
-        </div>
-        <div class="share-note">
-          All data is encoded directly in the URL — nothing is stored on any server.
-          The link will work as long as the recipient uses this same HTML file
-          (or you host it somewhere and share that URL).
-        </div>
-        <button class="share-close" onclick="this.closest('.share-overlay').remove()">Close</button>
-      </div>
-    `;
-    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
-    document.body.appendChild(overlay);
+    showShareModal(buildLongUrl());
   } catch(e) {
     alert('Could not generate share link — data may be too large for a URL.');
   }
@@ -1243,7 +1278,7 @@ function shareLink() {
 function copyShareUrl() {
   const inp = document.getElementById('share-url-val');
   navigator.clipboard.writeText(inp.value).then(() => {
-    const btn = inp.nextElementSibling;
+    const btn = document.getElementById('share-copy-btn');
     btn.textContent = 'Copied ✓';
     setTimeout(() => btn.textContent = 'Copy', 2000);
   });
