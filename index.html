@@ -1207,27 +1207,54 @@ function exportGraph(which) {
 
 // ── SHARE ─────────────────────────────────────────────────────────────────────
 
-function buildLongUrl() {
-  const json    = JSON.stringify(caseData);
-  const encoded = btoa(encodeURIComponent(json));
-  return window.location.href.split('#')[0] + '#data=' + encoded;
+async function compress(str) {
+  const stream = new CompressionStream('deflate-raw');
+  const writer = stream.writable.getWriter();
+  writer.write(new TextEncoder().encode(str));
+  writer.close();
+  const chunks = [];
+  const reader = stream.readable.getReader();
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+  }
+  const merged = new Uint8Array(chunks.reduce((a, c) => a + c.length, 0));
+  let offset = 0;
+  for (const c of chunks) { merged.set(c, offset); offset += c.length; }
+  // base64url encode (no +/= that break URLs)
+  return btoa(String.fromCharCode(...merged))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
 }
 
-// Store longUrl outside the modal so onclick can reach it safely
-let _pendingLongUrl = '';
-
-function isHosted() {
-  return window.location.protocol === 'https:' || window.location.protocol === 'http:';
+async function decompress(b64url) {
+  const b64 = b64url.replace(/-/g, '+').replace(/_/g, '/');
+  const binary = atob(b64);
+  const bytes  = Uint8Array.from(binary, c => c.charCodeAt(0));
+  const stream = new DecompressionStream('deflate-raw');
+  const writer = stream.writable.getWriter();
+  writer.write(bytes);
+  writer.close();
+  const chunks = [];
+  const reader = stream.readable.getReader();
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+  }
+  const merged = new Uint8Array(chunks.reduce((a, c) => a + c.length, 0));
+  let offset = 0;
+  for (const c of chunks) { merged.set(c, offset); offset += c.length; }
+  return new TextDecoder().decode(merged);
 }
 
-function showShareModal(longUrl, shortUrl) {
-  _pendingLongUrl = longUrl;
+async function buildLongUrl() {
+  const compressed = await compress(JSON.stringify(caseData));
+  return window.location.href.split('#')[0] + '#z=' + compressed;
+}
+
+function showShareModal(url) {
   document.querySelectorAll('.share-overlay').forEach(el => el.remove());
-
-  const displayUrl  = shortUrl || longUrl;
-  const isShortened = !!shortUrl;
-  const hosted      = isHosted();
-
   const overlay = document.createElement('div');
   overlay.className = 'share-overlay';
   overlay.innerHTML = `
@@ -1235,69 +1262,27 @@ function showShareModal(longUrl, shortUrl) {
       <div class="share-modal-title">Share your cases</div>
       <div class="share-modal-sub">Anyone with this link will see your data pre-loaded</div>
       <div class="share-url-box">
-        <input class="share-url-input" id="share-url-val" readonly value="${displayUrl}">
+        <input class="share-url-input" id="share-url-val" readonly value="${url}">
         <button class="share-copy-btn" id="share-copy-btn" onclick="copyShareUrl()">Copy</button>
       </div>
-      ${isShortened
-        ? `<div class="share-note" style="margin-top:10px;color:rgba(74,103,65,0.9)">
-             ✓ Link shortened — expires after 30 days of inactivity
-           </div>`
-        : hosted
-          ? `<div style="margin-top:10px">
-               <button class="share-close" id="shorten-btn"
-                 style="margin-top:0;color:rgba(201,168,76,0.9);border-color:rgba(201,168,76,0.35)">
-                 ✦ Shorten link
-               </button>
-             </div>`
-          : `<div class="share-note" style="margin-top:10px;color:rgba(245,240,232,0.35)">
-               ⚠ Shortening only works when the tool is hosted online (e.g. GitHub Pages).
-               Copy the full link above to share from a local file.
-             </div>`
-      }
       <div class="share-note" style="margin-top:10px">
-        Your data is encoded directly in this URL — nothing is sent to any server.
+        Your data is compressed and encoded directly in this URL —
+        nothing is sent to any server. The link works from any browser.
       </div>
       <button class="share-close" onclick="this.closest('.share-overlay').remove()">Close</button>
     </div>
   `;
-
-  if (!isShortened && hosted) {
-    overlay.querySelector('#shorten-btn').addEventListener('click', () => shortenUrl(_pendingLongUrl));
-  }
-
   overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
   document.body.appendChild(overlay);
 }
 
-async function shortenUrl(longUrl) {
-  const btn = document.getElementById('shorten-btn');
-  btn.textContent = 'Saving…';
-  btn.disabled = true;
-  try {
-    const resp = await fetch('https://jsonblob.com/api/jsonBlob', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-      body: JSON.stringify(caseData)
-    });
-    if (!resp.ok) throw new Error('API error');
-    const location = resp.headers.get('Location') || '';
-    const blobId   = location.split('/').pop();
-    if (!blobId) throw new Error('No blob ID');
-    const base     = window.location.href.split('#')[0];
-    showShareModal(longUrl, base + '#blob=' + blobId);
-  } catch(e) {
-    btn.textContent = '✦ Shorten link';
-    btn.disabled = false;
-    alert('Could not shorten the link. Make sure you are online and try again, or copy the full URL.');
-  }
-}
-
-function shareLink() {
+async function shareLink() {
   if (!caseData.length) { alert('Add some cases first before sharing.'); return; }
   try {
-    showShareModal(buildLongUrl());
+    const url = await buildLongUrl();
+    showShareModal(url);
   } catch(e) {
-    alert('Could not generate share link — data may be too large for a URL.');
+    alert('Could not generate share link — try exporting a save file instead.');
   }
 }
 
@@ -1313,19 +1298,15 @@ function copyShareUrl() {
 async function loadFromUrl() {
   try {
     const hash = window.location.hash;
-    if (hash.startsWith('#data=')) {
-      // Legacy inline-encoded data
-      const encoded = hash.slice(6);
-      const json    = decodeURIComponent(atob(encoded));
-      const data    = JSON.parse(json);
+    if (hash.startsWith('#z=')) {
+      // Compressed share link
+      const json = await decompress(hash.slice(3));
+      const data = JSON.parse(json);
       if (Array.isArray(data) && data.length) { caseData = data; return true; }
-    } else if (hash.startsWith('#blob=')) {
-      // JSONBlob-stored data
-      const blobId = hash.slice(6);
-      const resp   = await fetch('https://jsonblob.com/api/jsonBlob/' + blobId,
-        { headers: { 'Accept': 'application/json' } });
-      if (!resp.ok) throw new Error('Blob fetch failed');
-      const data = await resp.json();
+    } else if (hash.startsWith('#data=')) {
+      // Legacy uncompressed links — still supported
+      const json = decodeURIComponent(atob(hash.slice(6)));
+      const data = JSON.parse(json);
       if (Array.isArray(data) && data.length) { caseData = data; return true; }
     }
   } catch(e) {}
