@@ -1216,12 +1216,17 @@ function buildLongUrl() {
 // Store longUrl outside the modal so onclick can reach it safely
 let _pendingLongUrl = '';
 
+function isHosted() {
+  return window.location.protocol === 'https:' || window.location.protocol === 'http:';
+}
+
 function showShareModal(longUrl, shortUrl) {
   _pendingLongUrl = longUrl;
   document.querySelectorAll('.share-overlay').forEach(el => el.remove());
 
   const displayUrl  = shortUrl || longUrl;
   const isShortened = !!shortUrl;
+  const hosted      = isHosted();
 
   const overlay = document.createElement('div');
   overlay.className = 'share-overlay';
@@ -1233,25 +1238,30 @@ function showShareModal(longUrl, shortUrl) {
         <input class="share-url-input" id="share-url-val" readonly value="${displayUrl}">
         <button class="share-copy-btn" id="share-copy-btn" onclick="copyShareUrl()">Copy</button>
       </div>
-      ${!isShortened
-        ? `<div style="margin-top:10px">
-             <button class="share-close" id="shorten-btn"
-               style="margin-top:0;color:rgba(201,168,76,0.9);border-color:rgba(201,168,76,0.35)">
-               ✦ Shorten link
-             </button>
+      ${isShortened
+        ? `<div class="share-note" style="margin-top:10px;color:rgba(74,103,65,0.9)">
+             ✓ Link shortened — expires after 30 days of inactivity
            </div>`
-        : `<div class="share-note" style="margin-top:10px;color:rgba(74,103,65,0.9)">✓ Link shortened</div>`
+        : hosted
+          ? `<div style="margin-top:10px">
+               <button class="share-close" id="shorten-btn"
+                 style="margin-top:0;color:rgba(201,168,76,0.9);border-color:rgba(201,168,76,0.35)">
+                 ✦ Shorten link
+               </button>
+             </div>`
+          : `<div class="share-note" style="margin-top:10px;color:rgba(245,240,232,0.35)">
+               ⚠ Shortening only works when the tool is hosted online (e.g. GitHub Pages).
+               Copy the full link above to share from a local file.
+             </div>`
       }
-      <div class="share-note">
-        Data is encoded in the URL — no server stores your cases.
-        ${isShortened ? 'JSONBlob stores your data temporarily — links expire after 30 days of inactivity.' : ''}
+      <div class="share-note" style="margin-top:10px">
+        Your data is encoded directly in this URL — nothing is sent to any server.
       </div>
       <button class="share-close" onclick="this.closest('.share-overlay').remove()">Close</button>
     </div>
   `;
 
-  // Attach shorten handler after innerHTML is set, so the URL is never embedded in markup
-  if (!isShortened) {
+  if (!isShortened && hosted) {
     overlay.querySelector('#shorten-btn').addEventListener('click', () => shortenUrl(_pendingLongUrl));
   }
 
@@ -1264,25 +1274,21 @@ async function shortenUrl(longUrl) {
   btn.textContent = 'Saving…';
   btn.disabled = true;
   try {
-    // JSONBlob: stores raw JSON and returns an ID — CORS-friendly, no auth needed
     const resp = await fetch('https://jsonblob.com/api/jsonBlob', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
       body: JSON.stringify(caseData)
     });
     if (!resp.ok) throw new Error('API error');
-    // The blob ID is in the Location header, e.g. https://jsonblob.com/api/jsonBlob/abc123
     const location = resp.headers.get('Location') || '';
     const blobId   = location.split('/').pop();
     if (!blobId) throw new Error('No blob ID');
-    // Build a short share URL using the blob ID instead of inline data
     const base     = window.location.href.split('#')[0];
-    const shortUrl = base + '#blob=' + blobId;
-    showShareModal(longUrl, shortUrl);
+    showShareModal(longUrl, base + '#blob=' + blobId);
   } catch(e) {
     btn.textContent = '✦ Shorten link';
     btn.disabled = false;
-    alert('Could not shorten the link — try copying the full URL instead.');
+    alert('Could not shorten the link. Make sure you are online and try again, or copy the full URL.');
   }
 }
 
