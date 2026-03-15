@@ -392,6 +392,48 @@
   }
   .share-close:hover { color: var(--parchment); border-color: rgba(245,240,232,0.3); }
 
+  /* SCATTER PLOT */
+  .scatter-controls {
+    display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+  .scatter-axis-label {
+    font-family: 'IBM Plex Mono', monospace; font-size: 10px;
+    letter-spacing: 1px; color: rgba(245,240,232,0.4);
+  }
+  .scatter-dot {
+    cursor: pointer; transition: opacity 0.15s;
+  }
+  .scatter-dot:hover { opacity: 0.85; }
+  .scatter-dot.selected circle { stroke: #fff; stroke-width: 2; }
+  .scatter-tooltip {
+    position: absolute; pointer-events: none;
+    background: rgba(15,15,30,0.96); border: 1px solid rgba(201,168,76,0.4);
+    border-radius: 4px; padding: 10px 13px;
+    font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--parchment);
+    white-space: nowrap; opacity: 0; transition: opacity 0.15s;
+  }
+
+  /* SORT CONTROLS */
+  .sort-bar {
+    display: flex; align-items: center; gap: 6px;
+    padding: 8px 12px; border-bottom: 1px solid rgba(245,240,232,0.08);
+    background: rgba(245,240,232,0.02);
+  }
+  .sort-label {
+    font-family: 'IBM Plex Mono', monospace; font-size: 9px;
+    letter-spacing: 1px; text-transform: uppercase;
+    color: rgba(245,240,232,0.3); flex-shrink: 0;
+  }
+  .sort-btn {
+    font-family: 'IBM Plex Mono', monospace; font-size: 9px;
+    letter-spacing: 0.5px; padding: 3px 8px; border-radius: 2px;
+    cursor: pointer; transition: all 0.15s; border: 1px solid transparent;
+    color: rgba(245,240,232,0.35); background: none;
+  }
+  .sort-btn:hover { color: rgba(245,240,232,0.7); border-color: rgba(245,240,232,0.15); }
+  .sort-btn.active { color: var(--gold); border-color: rgba(201,168,76,0.4); background: rgba(201,168,76,0.08); }
+
   @media (max-width: 640px) {
     .workspace { grid-template-columns: 1fr; }
     .case-list-panel { position: static; }
@@ -431,6 +473,12 @@
       <div class="panel-header">
         <span class="panel-title">Cases</span>
         <span class="case-count" id="case-count">0 cases</span>
+      </div>
+      <div class="sort-bar">
+        <span class="sort-label">Sort</span>
+        <button class="sort-btn active" id="sort-manual" onclick="setSort('manual')">Manual</button>
+        <button class="sort-btn" id="sort-hca" onclick="setSort('hca')">HCA #</button>
+        <button class="sort-btn" id="sort-alpha" onclick="setSort('alpha')">A–Z</button>
       </div>
       <ul class="case-list" id="case-list"></ul>
       <button class="btn-add-case" onclick="addCase()">+ New Case</button>
@@ -495,6 +543,21 @@
     <div class="graph-legend" id="legend-norm"></div>
   </div>
 
+  <!-- SCATTER PLOT -->
+  <div class="graph-section">
+    <div class="graph-header">
+      <span class="graph-title">Judgments — Total vs Co-authored</span>
+      <div class="graph-actions">
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:rgba(245,240,232,0.3);letter-spacing:1px">Click a point for details</span>
+        <button class="btn-sm" onclick="exportGraph('scatter')">&#8595; Export image</button>
+      </div>
+    </div>
+    <div class="graph-wrap">
+      <div id="graph-scatter"></div>
+    </div>
+    <div class="graph-legend" id="legend-scatter"></div>
+  </div>
+
   <div class="output-section" id="output-section">
     <div class="output-title">Generated Python Script — copy and run locally</div>
     <pre id="output-code"></pre>
@@ -508,6 +571,7 @@ let caseData = [];
 let activeTab = 0;
 let activeCaseId = null;
 let saveTimer = null;
+let sortMode = 'manual'; // 'manual' | 'hca' | 'alpha'
 
 // ── PERSISTENCE ───────────────────────────────────────────────────────────────
 function saveToStorage() {
@@ -626,13 +690,55 @@ function updateJudges(caseId, jId, val) {
 // ── RENDER ────────────────────────────────────────────────────────────────────
 function renderAll() { renderCaseList(); renderEditor(); updatePreviews(); }
 
+function parseHcaRef(name) {
+  // Matches patterns like "(2024) HCA 5", "[2024] HCA 5", "HCA 5 2024", etc.
+  const m = name.match(/[\[(\s]?(\d{4})[\])\s]?\s*HCA\s+(\d+)/i)
+           || name.match(/HCA\s+(\d+)[^0-9]*(\d{4})/i);
+  if (m) {
+    // first pattern: m[1]=year, m[2]=number
+    const year = parseInt(m[1]);
+    const num  = parseInt(m[2]);
+    return { year, num };
+  }
+  return null;
+}
+
+function getSortedCases() {
+  if (sortMode === 'manual') return [...caseData];
+  const copy = [...caseData];
+  if (sortMode === 'alpha') {
+    copy.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  } else if (sortMode === 'hca') {
+    copy.sort((a, b) => {
+      const ra = parseHcaRef(a.name || '');
+      const rb = parseHcaRef(b.name || '');
+      // Cases with no HCA ref go to the bottom
+      if (!ra && !rb) return (a.name || '').localeCompare(b.name || '');
+      if (!ra) return 1;
+      if (!rb) return -1;
+      if (ra.year !== rb.year) return ra.year - rb.year;
+      return ra.num - rb.num;
+    });
+  }
+  return copy;
+}
+
+function setSort(mode) {
+  sortMode = mode;
+  document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.getElementById('sort-' + mode);
+  if (btn) btn.classList.add('active');
+  renderCaseList();
+}
+
 function renderCaseList() {
   const list = document.getElementById('case-list');
   document.getElementById('case-count').textContent = `${caseData.length} case${caseData.length !== 1 ? 's' : ''}`;
 
   if (!caseData.length) { list.innerHTML = '<li class="case-list-empty">No cases yet</li>'; return; }
 
-  list.innerHTML = caseData.map((c, i) => `
+  const sorted = getSortedCases();
+  list.innerHTML = sorted.map((c, i) => `
     <li class="case-list-item ${c.id === activeCaseId ? 'active' : ''}" onclick="selectCase(${c.id})">
       <span class="case-list-num">${String(i+1).padStart(2,'0')}</span>
       ${c.name
@@ -1139,6 +1245,177 @@ function drawGraph(opts) {
   `;
 }
 
+function drawScatter() {
+  const container = document.getElementById('graph-scatter');
+  const legend    = document.getElementById('legend-scatter');
+  if (!container) return;
+  container.innerHTML = '';
+  legend.innerHTML = '';
+
+  const parsed         = getParsedData();
+  const judgeTotals    = buildJudgeTotals(parsed);
+  const coAuthoredTots = buildCoAuthoredTotals(parsed);
+
+  // Build one point per judge that appears in any judgment
+  const judgeSet = new Set();
+  parsed.forEach(c => c.judgments.forEach(j => j.forEach(n => judgeSet.add(n))));
+  const points = [...judgeSet].map(name => ({
+    name,
+    total:      judgeTotals[name]    || 0,
+    coAuthored: coAuthoredTots[name] || 0,
+  }));
+
+  if (points.length < 2) {
+    container.innerHTML = '<div class="graph-empty">Add more cases with multiple judges to see this chart</div>';
+    return;
+  }
+
+  const margin = { top: 30, right: 30, bottom: 60, left: 60 };
+  const W = container.clientWidth || 860;
+  const H = 500;
+  const iW = W - margin.left - margin.right;
+  const iH = H - margin.top  - margin.bottom;
+
+  const svg = d3.select(container)
+    .append('svg')
+    .attr('id', 'svg-scatter')
+    .attr('class', 'graph-svg')
+    .attr('width', W).attr('height', H);
+
+  // Background
+  svg.append('rect').attr('width', W).attr('height', H)
+    .attr('fill', 'rgba(10,10,20,0.6)');
+
+  const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+
+  const maxTotal = Math.max(...points.map(p => p.total), 1);
+  const maxCoA   = Math.max(...points.map(p => p.coAuthored), 1);
+
+  const xScale = d3.scaleLinear().domain([0, maxTotal + 0.5]).range([0, iW]);
+  const yScale = d3.scaleLinear().domain([0, maxCoA  + 0.5]).range([iH, 0]);
+
+  // Grid lines
+  g.append('g').attr('class', 'grid')
+    .call(d3.axisLeft(yScale).tickSize(-iW).tickFormat(''))
+    .selectAll('line').attr('stroke', 'rgba(245,240,232,0.05)');
+  g.select('.grid .domain').remove();
+
+  g.append('g').attr('class', 'grid')
+    .attr('transform', `translate(0,${iH})`)
+    .call(d3.axisBottom(xScale).tickSize(-iH).tickFormat(''))
+    .selectAll('line').attr('stroke', 'rgba(245,240,232,0.05)');
+  g.select('.grid:last-child .domain').remove();
+
+  // Diagonal reference line (y = x: all judgments co-authored)
+  const diagMax = Math.min(maxTotal, maxCoA);
+  g.append('line')
+    .attr('x1', xScale(0)).attr('y1', yScale(0))
+    .attr('x2', xScale(diagMax)).attr('y2', yScale(diagMax))
+    .attr('stroke', 'rgba(201,168,76,0.15)')
+    .attr('stroke-width', 1).attr('stroke-dasharray', '4 4');
+
+  // Axes
+  const axisColor = 'rgba(245,240,232,0.3)';
+  const axisFont  = "'IBM Plex Mono', monospace";
+
+  g.append('g').attr('transform', `translate(0,${iH})`)
+    .call(d3.axisBottom(xScale).ticks(6).tickFormat(d3.format('d')))
+    .selectAll('text').attr('fill', axisColor).attr('font-family', axisFont).attr('font-size', 10);
+  g.select('.domain').attr('stroke', axisColor);
+  g.selectAll('.tick line').attr('stroke', axisColor);
+
+  g.append('g')
+    .call(d3.axisLeft(yScale).ticks(6).tickFormat(d3.format('d')))
+    .selectAll('text').attr('fill', axisColor).attr('font-family', axisFont).attr('font-size', 10);
+
+  // Axis labels
+  g.append('text')
+    .attr('x', iW / 2).attr('y', iH + 46)
+    .attr('text-anchor', 'middle')
+    .attr('fill', 'rgba(245,240,232,0.5)')
+    .attr('font-family', axisFont).attr('font-size', 11).attr('letter-spacing', 1)
+    .text('TOTAL JUDGMENTS');
+
+  g.append('text')
+    .attr('transform', 'rotate(-90)')
+    .attr('x', -iH / 2).attr('y', -46)
+    .attr('text-anchor', 'middle')
+    .attr('fill', 'rgba(245,240,232,0.5)')
+    .attr('font-family', axisFont).attr('font-size', 11).attr('letter-spacing', 1)
+    .text('CO-AUTHORED JUDGMENTS');
+
+  // Tooltip
+  const tip = d3.select(container).append('div').attr('class', 'scatter-tooltip');
+
+  // Dots
+  let selected = null;
+  const dots = g.selectAll('.scatter-dot').data(points).join('g')
+    .attr('class', 'scatter-dot')
+    .attr('transform', d => `translate(${xScale(d.total)},${yScale(d.coAuthored)})`);
+
+  dots.append('circle')
+    .attr('r', 6)
+    .attr('fill', '#c9a84c')
+    .attr('fill-opacity', 0.75)
+    .attr('stroke', 'rgba(201,168,76,0.5)')
+    .attr('stroke-width', 1);
+
+  dots.on('click', function(event, d) {
+    event.stopPropagation();
+    if (selected) selected.classed('selected', false);
+    d3.select(this).classed('selected', true);
+    selected = d3.select(this);
+    tip.html(`
+      <strong style="font-family:'Playfair Display',serif;font-size:13px;color:#c9a84c">${d.name}</strong><br>
+      <span style="color:rgba(245,240,232,0.5)">total judgments</span>&nbsp;&nbsp;<strong>${d.total}</strong><br>
+      <span style="color:rgba(245,240,232,0.5)">co-authored</span>&nbsp;&nbsp;<strong>${d.coAuthored}</strong><br>
+      <span style="color:rgba(245,240,232,0.5)">solo</span>&nbsp;&nbsp;<strong>${d.total - d.coAuthored}</strong>
+    `).style('opacity', 1);
+  })
+  .on('mousemove', function(event) {
+    const rect = container.getBoundingClientRect();
+    let lx = event.clientX - rect.left + 12;
+    let ly = event.clientY - rect.top  - 10;
+    // keep tooltip inside container
+    lx = Math.min(lx, W - 200);
+    tip.style('left', lx + 'px').style('top', ly + 'px');
+  })
+  .on('mouseout', function() {
+    // only hide if not selected
+    if (!d3.select(this).classed('selected')) {
+      // keep visible — tooltip tied to click not hover
+    }
+  });
+
+  svg.on('click', () => {
+    if (selected) { selected.classed('selected', false); selected = null; }
+    tip.style('opacity', 0);
+  });
+
+  // Judge name labels for dots (only if not too crowded)
+  if (points.length <= 20) {
+    dots.append('text')
+      .text(d => d.name)
+      .attr('x', 9).attr('y', 4)
+      .attr('font-family', "'IBM Plex Sans', sans-serif")
+      .attr('font-size', 10)
+      .attr('fill', 'rgba(245,240,232,0.6)')
+      .attr('pointer-events', 'none');
+  }
+
+  legend.innerHTML = `
+    <span class="legend-item">
+      <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#c9a84c;opacity:0.75;vertical-align:middle"></span>
+      &nbsp;Judge
+    </span>
+    <span class="legend-item">
+      <span style="display:inline-block;width:24px;height:1px;background:rgba(201,168,76,0.3);border-top:1px dashed rgba(201,168,76,0.3);vertical-align:middle"></span>
+      &nbsp;y = x (100% co-authored)
+    </span>
+    <span style="opacity:0.4">Click a point for details</span>
+  `;
+}
+
 function drawNetwork() {
   const parsed      = getParsedData();
   const rawEdges    = buildEdges(parsed);
@@ -1163,6 +1440,9 @@ function drawNetwork() {
     rawWeight: e.weight
   }));
 
+  // Scatter plot
+  drawScatter();
+
   drawGraph({
     containerId: 'graph-norm', infoId: 'info-norm', legendId: 'legend-norm',
     edges: normEdges, nodes: nodes.map(n => ({ ...n })),
@@ -1171,7 +1451,7 @@ function drawNetwork() {
 }
 
 function exportGraph(which) {
-  const svgId = which === 'raw' ? 'svg-raw' : 'svg-norm';
+  const svgId = which === 'raw' ? 'svg-raw' : which === 'scatter' ? 'svg-scatter' : 'svg-norm';
   const svg   = document.getElementById(svgId);
   if (!svg) { alert('Graph not rendered yet.'); return; }
 
