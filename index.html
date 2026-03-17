@@ -574,6 +574,20 @@
     <div class="graph-legend" id="legend-scatter"></div>
   </div>
 
+  <!-- COLLABORATION OVER TIME -->
+  <div class="graph-section">
+    <div class="graph-header">
+      <span class="graph-title">Collaboration Over Time</span>
+      <div class="graph-actions">
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:rgba(245,240,232,0.3);letter-spacing:1px">Average judges per judgment by year</span>
+        <button class="btn-sm" onclick="exportGraph('collab')">&#8595; Export image</button>
+      </div>
+    </div>
+    <div class="graph-wrap">
+      <div id="graph-collab"></div>
+    </div>
+  </div>
+
   <div class="output-section" id="output-section">
     <div class="output-title">Generated Python Script — copy and run locally</div>
     <pre id="output-code"></pre>
@@ -872,6 +886,7 @@ function updatePreviews() {
   });
   document.getElementById('preview-1').innerHTML = t2 + '</table>';
   drawNetwork();
+  drawCollaborationChart();
 }
 
 // ── EXPORT ────────────────────────────────────────────────────────────────────
@@ -1501,6 +1516,169 @@ function buildFilteredCoAuthoredTotals(parsed) {
   return totals;
 }
 
+function extractYearFromCase(caseName) {
+  // Only extract year from square brackets, e.g. [2024] or [YYYY]
+  const match = caseName.match(/\[(\d{4})\]/);
+  return match ? parseInt(match[1]) : null;
+}
+
+function buildCollaborationOverTime(parsed) {
+  // Group judgments by year and calculate average judges per judgment
+  const yearData = {};
+  
+  parsed.forEach(caseItem => {
+    const year = extractYearFromCase(caseItem.name);
+    if (!year) return; // Skip cases without a year
+    
+    if (!yearData[year]) {
+      yearData[year] = { totalJudges: 0, judementCount: 0, caseCount: 0 };
+    }
+    
+    yearData[year].caseCount += 1;
+    
+    caseItem.judgments.forEach(judgment => {
+      if (judgment.length > 0) {
+        yearData[year].totalJudges += judgment.length;
+        yearData[year].judementCount += 1;
+      }
+    });
+  });
+
+  // Convert to sorted array with average judges per judgment
+  return Object.entries(yearData)
+    .map(([year, data]) => ({
+      year: parseInt(year),
+      avgJudges: data.judementCount > 0 ? data.totalJudges / data.judementCount : 0,
+      totalJudgments: data.judementCount,
+      totalJudges: data.totalJudges,
+      caseCount: data.caseCount
+    }))
+    .sort((a, b) => a.year - b.year);
+}
+
+function drawCollaborationChart() {
+  const parsed = getParsedData();
+  const collaborationData = buildCollaborationOverTime(parsed);
+  
+  const container = document.getElementById('graph-collab');
+  if (!container) return;
+  container.innerHTML = '';
+
+  if (collaborationData.length === 0) {
+    container.innerHTML = '<div class="graph-empty">Add cases with years (e.g., "Smith v Jones [2024]") to see collaboration over time</div>';
+    return;
+  }
+
+  const margin = { top: 30, right: 30, bottom: 60, left: 60 };
+  const W = container.clientWidth || 860;
+  const H = 500;
+  const iW = W - margin.left - margin.right;
+  const iH = H - margin.top - margin.bottom;
+
+  const svg = d3.select(container)
+    .append('svg')
+    .attr('id', 'svg-collab')
+    .attr('class', 'graph-svg')
+    .attr('width', W).attr('height', H);
+
+  // Background
+  svg.append('rect').attr('width', W).attr('height', H)
+    .attr('fill', 'rgba(10,10,20,0.6)');
+
+  const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+
+  // Scales
+  const minYear = Math.min(...collaborationData.map(d => d.year));
+  const maxYear = Math.max(...collaborationData.map(d => d.year));
+  const maxAvg = Math.max(...collaborationData.map(d => d.avgJudges));
+
+  const xScale = d3.scaleLinear()
+    .domain([minYear - 0.5, maxYear + 0.5])
+    .range([0, iW]);
+
+  const yScale = d3.scaleLinear()
+    .domain([0, maxAvg * 1.1])
+    .range([iH, 0]);
+
+  // Axes
+  g.append('g')
+    .attr('transform', `translate(0,${iH})`)
+    .call(d3.axisBottom(xScale).tickFormat(d3.format('d')))
+    .style('color', 'rgba(245,240,232,0.5)')
+    .style('font-size', '11px');
+
+  g.append('g')
+    .call(d3.axisLeft(yScale))
+    .style('color', 'rgba(245,240,232,0.5)')
+    .style('font-size', '11px');
+
+  // Axis labels
+  svg.append('text')
+    .attr('x', W / 2).attr('y', H - 10)
+    .attr('text-anchor', 'middle')
+    .attr('font-size', '12px')
+    .attr('fill', 'rgba(245,240,232,0.6)')
+    .text('Year');
+
+  svg.append('text')
+    .attr('transform', 'rotate(-90)')
+    .attr('x', -H / 2).attr('y', 15)
+    .attr('text-anchor', 'middle')
+    .attr('font-size', '12px')
+    .attr('fill', 'rgba(245,240,232,0.6)')
+    .text('Avg Judges per Judgment');
+
+  // Line generator
+  const line = d3.line()
+    .x(d => xScale(d.year))
+    .y(d => yScale(d.avgJudges));
+
+  // Draw line
+  g.append('path')
+    .datum(collaborationData)
+    .attr('fill', 'none')
+    .attr('stroke', '#c9a84c')
+    .attr('stroke-width', 2.5)
+    .attr('d', line);
+
+  // Draw points
+  g.selectAll('.dot')
+    .data(collaborationData)
+    .join('circle')
+    .attr('class', 'dot')
+    .attr('cx', d => xScale(d.year))
+    .attr('cy', d => yScale(d.avgJudges))
+    .attr('r', 5)
+    .attr('fill', '#c9a84c')
+    .attr('stroke', '#1a1a2e')
+    .attr('stroke-width', 1.5)
+    .style('cursor', 'pointer')
+    .on('mouseover', function(event, d) {
+      d3.select(this)
+        .attr('r', 7)
+        .attr('fill', '#e8d5a3');
+    })
+    .on('mouseout', function() {
+      d3.select(this)
+        .attr('r', 5)
+        .attr('fill', '#c9a84c');
+    })
+    .on('click', function(event, d) {
+      const info = `<strong>${d.year}</strong><br>Avg judges per judgment: ${d.avgJudges.toFixed(2)}<br>Total judgments: ${d.totalJudgments}<br>Number of cases: ${d.caseCount}`;
+      // You can add a tooltip or info box here if desired
+      alert(`Year: ${d.year}\nAverage judges per judgment: ${d.avgJudges.toFixed(2)}\nTotal judgments: ${d.totalJudgments}\nNumber of cases: ${d.caseCount}`);
+    });
+
+  // Grid lines
+  g.append('g')
+    .attr('class', 'grid')
+    .attr('opacity', 0.1)
+    .call(d3.axisLeft(yScale)
+      .tickSize(-iW)
+      .tickFormat('')
+    );
+}
+
 function drawNetwork() {
   const parsed      = getParsedData();
   const rawEdges    = buildEdges(parsed);
@@ -1561,7 +1739,7 @@ function drawNetwork() {
 }
 
 function exportGraph(which) {
-  const svgId = which === 'raw' ? 'svg-raw' : which === 'scatter' ? 'svg-scatter' : which === 'filtered' ? 'svg-filtered' : 'svg-norm';
+  const svgId = which === 'raw' ? 'svg-raw' : which === 'scatter' ? 'svg-scatter' : which === 'filtered' ? 'svg-filtered' : which === 'collab' ? 'svg-collab' : 'svg-norm';
   const svg   = document.getElementById(svgId);
   if (!svg) { alert('Graph not rendered yet.'); return; }
 
