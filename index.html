@@ -543,6 +543,22 @@
     <div class="graph-legend" id="legend-norm"></div>
   </div>
 
+  <!-- FILTERED NETWORK -->
+  <div class="graph-section">
+    <div class="graph-header">
+      <span class="graph-title">Co-authorship Network — Filtered</span>
+      <div class="graph-actions">
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:rgba(245,240,232,0.3);letter-spacing:1px">Only cases where all judgments have ≤3 judges</span>
+        <button class="btn-sm" onclick="exportGraph('filtered')">&#8595; Export image</button>
+      </div>
+    </div>
+    <div class="graph-wrap">
+      <div id="graph-filtered"></div>
+      <div class="graph-info" id="info-filtered"></div>
+    </div>
+    <div class="graph-legend" id="legend-filtered"></div>
+  </div>
+
   <!-- SCATTER PLOT -->
   <div class="graph-section">
     <div class="graph-header">
@@ -999,6 +1015,7 @@ function exportExcel() {
 
 const simRawRef  = { sim: null };
 const simNormRef = { sim: null };
+const simFilteredRef = { sim: null };
 
 function buildEdges(parsed) {
   const weights = {};
@@ -1048,7 +1065,7 @@ function showInfo(infoEl, html) {
 }
 
 function drawGraph(opts) {
-  const { containerId, infoId, legendId, edges, nodes, svgId, isNorm, simRef, judgeTotals, coAuthoredTotals } = opts;
+  const { containerId, infoId, legendId, edges, nodes, svgId, isNorm, isFiltered, simRef, judgeTotals, coAuthoredTotals } = opts;
   const container = document.getElementById(containerId);
   const infoEl    = document.getElementById(infoId);
   const legend    = document.getElementById(legendId);
@@ -1203,11 +1220,14 @@ function drawGraph(opts) {
     const totalJudgments  = (judgeTotals && judgeTotals[d.id]) || 0;
     const coAuthoredCount = (coAuthoredTotals && coAuthoredTotals[d.id]) || 0;
 
+    const totalLabel = isFiltered ? 'filtered total judgments' : 'total judgments';
+    const coAuthoredLabel = isFiltered ? 'filtered co-authored judgments' : 'co-authored judgments';
+
     showInfo(infoEl, `
       <div class="graph-info-title">${d.id}</div>
       ${!isNorm && judgeTotals ? `
-        <div class="graph-info-row"><span>total judgments</span><span>${totalJudgments}</span></div>
-        <div class="graph-info-row"><span>co-authored judgments</span><span>${coAuthoredCount}</span></div>
+        <div class="graph-info-row"><span>${totalLabel}</span><span>${totalJudgments}</span></div>
+        <div class="graph-info-row"><span>${coAuthoredLabel}</span><span>${coAuthoredCount}</span></div>
       ` : ''}
       <div class="graph-info-row"><span>${isNorm ? 'total norm. score' : 'total co-authorships'}</span><span>${totalScore}</span></div>
       <div class="graph-info-row"><span>co-author count</span><span>${partners.length}</span></div>
@@ -1416,6 +1436,71 @@ function drawScatter() {
   `;
 }
 
+function buildFilteredEdges(parsed) {
+  // Filter cases: only include cases where ALL judgments have ≤3 judges
+  const filteredCases = parsed.filter(caseItem => {
+    return caseItem.judgments.every(judgment => judgment.length <= 3);
+  });
+
+  // Build edges from filtered cases
+  const edgeMap = {};
+  filteredCases.forEach(caseItem => {
+    caseItem.judgments.forEach(judgment => {
+      for (let i = 0; i < judgment.length; i++) {
+        for (let j = i + 1; j < judgment.length; j++) {
+          const a = judgment[i];
+          const b = judgment[j];
+          const key = a < b ? `${a}|${b}` : `${b}|${a}`;
+          edgeMap[key] = (edgeMap[key] || 0) + 1;
+        }
+      }
+    });
+  });
+
+  // Convert to edge list
+  return Object.entries(edgeMap).map(([key, weight]) => {
+    const [source, target] = key.split('|');
+    return { source, target, weight };
+  });
+}
+
+function buildFilteredJudgeTotals(parsed) {
+  // Only count judgments from filtered cases (where all judgments have ≤3 judges)
+  const filteredCases = parsed.filter(caseItem => {
+    return caseItem.judgments.every(judgment => judgment.length <= 3);
+  });
+
+  const totals = {};
+  filteredCases.forEach(caseItem => {
+    caseItem.judgments.forEach(judgment => {
+      judgment.forEach(judge => {
+        totals[judge] = (totals[judge] || 0) + 1;
+      });
+    });
+  });
+  return totals;
+}
+
+function buildFilteredCoAuthoredTotals(parsed) {
+  // Only count co-authored judgments from filtered cases
+  const filteredCases = parsed.filter(caseItem => {
+    return caseItem.judgments.every(judgment => judgment.length <= 3);
+  });
+
+  const totals = {};
+  filteredCases.forEach(caseItem => {
+    caseItem.judgments.forEach(judgment => {
+      if (judgment.length > 1) {
+        // This is a co-authored judgment
+        judgment.forEach(judge => {
+          totals[judge] = (totals[judge] || 0) + 1;
+        });
+      }
+    });
+  });
+  return totals;
+}
+
 function drawNetwork() {
   const parsed      = getParsedData();
   const rawEdges    = buildEdges(parsed);
@@ -1426,32 +1511,57 @@ function drawNetwork() {
   rawEdges.forEach(e => { nodeSet.add(e.source); nodeSet.add(e.target); });
   const nodes = [...nodeSet].map(id => ({ id }));
 
-  // Raw graph
-  drawGraph({
-    containerId: 'graph-raw', infoId: 'info-raw', legendId: 'legend-raw',
-    edges: rawEdges, nodes: nodes.map(n => ({ ...n })),
-    svgId: 'svg-raw', isNorm: false, simRef: simRawRef, judgeTotals, coAuthoredTotals
-  });
+  // Render each graph with a tiny delay to ensure they don't interfere
+  setTimeout(() => {
+    // Raw graph
+    drawGraph({
+      containerId: 'graph-raw', infoId: 'info-raw', legendId: 'legend-raw',
+      edges: rawEdges, nodes: nodes.map(n => ({ ...n })),
+      svgId: 'svg-raw', isNorm: false, simRef: simRawRef, judgeTotals, coAuthoredTotals
+    });
+  }, 0);
 
-  // Normalised graph — Dice coefficient: 2*shared / (totA + totB)
-  const normEdges = rawEdges.map(e => ({
-    source: e.source, target: e.target,
-    weight: +((2 * e.weight) / ((judgeTotals[e.source] || 1) + (judgeTotals[e.target] || 1))).toFixed(4),
-    rawWeight: e.weight
-  }));
+  setTimeout(() => {
+    // Normalised graph — Dice coefficient: 2*shared / (totA + totB)
+    const normEdges = rawEdges.map(e => ({
+      source: e.source, target: e.target,
+      weight: +((2 * e.weight) / ((judgeTotals[e.source] || 1) + (judgeTotals[e.target] || 1))).toFixed(4),
+      rawWeight: e.weight
+    }));
 
-  // Scatter plot
-  drawScatter();
+    drawGraph({
+      containerId: 'graph-norm', infoId: 'info-norm', legendId: 'legend-norm',
+      edges: normEdges, nodes: nodes.map(n => ({ ...n })),
+      svgId: 'svg-norm', isNorm: true, simRef: simNormRef
+    });
+  }, 50);
 
-  drawGraph({
-    containerId: 'graph-norm', infoId: 'info-norm', legendId: 'legend-norm',
-    edges: normEdges, nodes: nodes.map(n => ({ ...n })),
-    svgId: 'svg-norm', isNorm: true, simRef: simNormRef
-  });
+  setTimeout(() => {
+    // Scatter plot
+    drawScatter();
+  }, 100);
+
+  setTimeout(() => {
+    // Filtered graph — only cases where all judgments have ≤3 judges
+    const filteredEdges = buildFilteredEdges(parsed);
+    const filteredNodeSet = new Set();
+    filteredEdges.forEach(e => { filteredNodeSet.add(e.source); filteredNodeSet.add(e.target); });
+    const filteredNodes = [...filteredNodeSet].map(id => ({ id }));
+    
+    const filteredJudgeTotals = buildFilteredJudgeTotals(parsed);
+    const filteredCoAuthoredTotals = buildFilteredCoAuthoredTotals(parsed);
+
+    drawGraph({
+      containerId: 'graph-filtered', infoId: 'info-filtered', legendId: 'legend-filtered',
+      edges: filteredEdges, nodes: filteredNodes.map(n => ({ ...n })),
+      svgId: 'svg-filtered', isNorm: false, isFiltered: true, simRef: simFilteredRef, 
+      judgeTotals: filteredJudgeTotals, coAuthoredTotals: filteredCoAuthoredTotals
+    });
+  }, 150);
 }
 
 function exportGraph(which) {
-  const svgId = which === 'raw' ? 'svg-raw' : which === 'scatter' ? 'svg-scatter' : 'svg-norm';
+  const svgId = which === 'raw' ? 'svg-raw' : which === 'scatter' ? 'svg-scatter' : which === 'filtered' ? 'svg-filtered' : 'svg-norm';
   const svg   = document.getElementById(svgId);
   if (!svg) { alert('Graph not rendered yet.'); return; }
 
