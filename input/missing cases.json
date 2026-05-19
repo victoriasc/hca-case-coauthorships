@@ -1,0 +1,294 @@
+{
+  "db": {
+    "[2003] HCA 4": {
+      "citation": "[2003] HCA 4",
+      "catchwords": "New South Wales v Lepore Negligence – Liability of school authority – Alleged sexual assault on pupil by teacher – Whether school authority in breach of non-delegable duty of care – Concept of non-delegable duty – Whether school authority vicariously liable – Test for imposition of vicarious liability. Practice and procedure – Trial – Negligence – Trial of issues of liability and damage severed – Failure to make necessary findings of fact – Retrial. Words and phrases – \"non-delegable duty\", \"vicarious liability\". Samin v Queensland; Rich v Queensland Negligence – Liability of school authority – Sexual assault on pupil by teacher – Whether school authority in breach of non-delegable duty of care – Concept of non-delegable duty – Whether school authority vicariously liable – Test for imposition of vicarious liability. Words and phrases – \"non-delegable duty\", \"vicarious liability\".",
+      "bench": [
+        "GLEESON",
+        "GAUDRON",
+        "McHUGH",
+        "GUMMOW",
+        "KIRBY",
+        "HAYNE",
+        "CALLINAN"
+      ],
+      "judgmentAuthors": [
+        {
+          "name": "GLEESON",
+          "type": "Separate judgment",
+          "totalCitations": 334,
+          "paragraphs": "1-86"
+        },
+        {
+          "name": "GUMMOW, HAYNE",
+          "type": "Separate judgment",
+          "totalCitations": 254,
+          "paragraphs": "175-271"
+        },
+        {
+          "name": "GAUDRON",
+          "type": "Separate judgment",
+          "totalCitations": 87,
+          "paragraphs": "87-134"
+        },
+        {
+          "name": "McHUGH",
+          "type": "Separate judgment",
+          "totalCitations": 84,
+          "paragraphs": "135-174"
+        },
+        {
+          "name": "KIRBY",
+          "type": "Separate judgment",
+          "totalCitations": 65,
+          "paragraphs": "272-337"
+        },
+        {
+          "name": "CALLINAN",
+          "type": "Separate judgment",
+          "totalCitations": 16,
+          "paragraphs": "338-354"
+        }
+      ],
+      "paragraphs": [
+        {
+          "para": 40,
+          "judge": "GLEESON",
+          "citations": 59,
+          "snippet": "An employer is vicariously liable for a tort committed by an employee in the course of his or her employment.  The limiting or controlling concept, course of employment, is sometimes referred to as sc"
+        },
+        {
+          "para": 42,
+          "judge": "GLEESON",
+          "citations": 30,
+          "snippet": "To point to a vivid example of conduct by an employee that is not in the course of employment is a useful method of elucidating the concept, but it may be of limited assistance in resolving difficult"
+        },
+        {
+          "para": 67,
+          "judge": "GLEESON",
+          "citations": 26,
+          "snippet": "It cannot be said that the risk of sexual abuse ought to be regarded as an incident of the conduct of most schools, or that the ordinary responsibilities of teachers are such that sexual assaults on p"
+        },
+        {
+          "para": 74,
+          "judge": "GLEESON",
+          "citations": 21,
+          "snippet": "If there is sufficient connection between what a particular teacher is employed to do, and sexual misconduct, for such misconduct fairly to be regarded as in the course of the teacher's employment, it"
+        },
+        {
+          "para": 239,
+          "judge": "GUMMOW, HAYNE",
+          "citations": 21,
+          "snippet": "For present purposes, it is enough to conclude that when an employer is alleged to be vicariously liable for the intentional tort of an employee, recovery against the employer on that basis should not"
+        },
+        {
+          "para": 187,
+          "judge": "GUMMOW, HAYNE",
+          "citations": 19,
+          "snippet": "At the root of all of the difficulties presented by this case lies the decision to attempt to sever trial of issues of liability from trial of issues about damages[194].  Adopting that course in this"
+        },
+        {
+          "para": 270,
+          "judge": "GUMMOW, HAYNE",
+          "citations": 18,
+          "snippet": "As Williams v Milotin[289] makes plain, negligently inflicted injury to the person can, in at least some circumstances, be pleaded as trespass to the person, but the intentional infliction of harm can"
+        },
+        {
+          "para": 2,
+          "judge": "GLEESON",
+          "citations": 15,
+          "snippet": "One potentially important matter is fault on the part of the school authority.  The legal responsibilities of such an authority include a duty to take reasonable care for the safety of pupils.  There"
+        },
+        {
+          "para": 196,
+          "judge": "GUMMOW, HAYNE",
+          "citations": 14,
+          "snippet": "As was pointed out in Hollis v Vabu Pty Ltd[199], any consideration of vicarious liability must begin by accepting, first[200], that \"[a] fully satisfactory rationale for the imposition of vicarious l"
+        },
+        {
+          "para": 265,
+          "judge": "GUMMOW, HAYNE",
+          "citations": 14,
+          "snippet": "Hitherto the duty has been understood to be that the party having the care, supervision or control of others will itself act with reasonable care and will ensure that all others to whom it delegates t"
+        },
+        {
+          "para": 54,
+          "judge": "GLEESON",
+          "citations": 13,
+          "snippet": "Where acts of physical violence are concerned, the nature and seriousness of the criminal act may be relevant to a judgment as to whether it is to be regarded as a personal, independent act of the per"
+        },
+        {
+          "para": 34,
+          "judge": "GLEESON",
+          "citations": 12,
+          "snippet": "The proposition that, because a school authority's duty of care to a pupil is non-delegable, the authority is liable for any injury, accidental or intentional, inflicted at school upon a pupil by a te"
+        },
+        {
+          "para": 231,
+          "judge": "GUMMOW, HAYNE",
+          "citations": 12,
+          "snippet": "The answer given by Dixon J, in Deatons[247], was that the barmaid's action was not \"a negligent or improper act, due to error or ill judgment, but done in the supposed furtherance of the master's int"
+        },
+        {
+          "para": 254,
+          "judge": "GUMMOW, HAYNE",
+          "citations": 12,
+          "snippet": "In this Court, the concept of a non‑delegable duty of care has been considered in detail in Introvigne, Kondis[278] and in the joint reasons of five members of the Court in Burnie Port Authority[279]."
+        },
+        {
+          "para": 36,
+          "judge": "GLEESON",
+          "citations": 11,
+          "snippet": "In cases where the care of children, or other vulnerable people, is involved, it is difficult to see what kind of relationship would not give rise to a non-delegable duty of care.  It is clearly not l"
+        },
+        {
+          "para": 130,
+          "judge": "GAUDRON",
+          "citations": 11,
+          "snippet": "The only principled basis upon which vicarious liability can be imposed for the deliberate criminal acts of another, in my view, is that the person against whom liability is asserted is estopped from"
+        },
+        {
+          "para": 131,
+          "judge": "GAUDRON",
+          "citations": 11,
+          "snippet": "Ordinarily, a person will not be estopped from denying that a person was acting as his or her servant, agent or representative unless there is a close connection between what was done and what that pe"
+        },
+        {
+          "para": 213,
+          "judge": "GUMMOW, HAYNE",
+          "citations": 11,
+          "snippet": "We would accept that an important element in considering the underlying policy questions in cases such as the present is the nature and extent (the \"sufficiency\") of the relationship between the emplo"
+        },
+        {
+          "para": 223,
+          "judge": "GUMMOW, HAYNE",
+          "citations": 11,
+          "snippet": "An approach not fundamentally different from Bazley has been adopted in some American jurisdictions where employers have been held vicariously liable for sexual assaults occurring as a result of autho"
+        },
+        {
+          "para": 257,
+          "judge": "GUMMOW, HAYNE",
+          "citations": 11,
+          "snippet": "A duty to ensure that reasonable care is taken is a strict liability.  There is a breach of the duty if reasonable care is not taken, regardless of whether the party that owes the duty has itself acte"
+        },
+        {
+          "para": 31,
+          "judge": "GLEESON",
+          "citations": 10,
+          "snippet": "The failure to take care of the plaintiff which resulted in the Commonwealth's liability in Introvigne was a negligent omission on the part of the teachers at the school, acting in the course of their"
+        },
+        {
+          "para": 41,
+          "judge": "GLEESON",
+          "citations": 10,
+          "snippet": "The antithesis of conduct in the course of employment is sometimes expressed by saying that the employee was \"on a frolic of his own\".  The origin of that expression was explained by Diplock LJ in Mor"
+        }
+      ],
+      "autoNotes": [],
+      "userNotes": "",
+      "importedAt": "2026-05-19T11:42:37.130Z"
+    },
+    "[2012] HCA 46": {
+      "citation": "[2012] HCA 46",
+      "catchwords": "Plaintiff M47/2012 v Director General of Security Citizenship and migration – Migration – Refugees – Protection visas – Inconsistency between Migration Act 1958 (Cth) and Migration Regulations 1994 (Cth) – Plaintiff found to be a refugee but refused protection visa due to adverse security assessment by Australian Security Intelligence Organisation – Clause 866.225(a) of Sched 2 to Regulations prescribes public interest criterion 4002 as criterion for grant of protection visa – Public interest criterion 4002 requires that applicant not be assessed by Australian Security Intelligence Organisation to be risk to security – Whether prescription of public interest criterion 4002 as criterion for grant of protection visa beyond power conferred by s 31(3) of Act. Administrative law – Procedural fairness – ASIO interviewed plaintiff – ASIO issued adverse security assessment in relation to plaintiff – Plaintiff therefore did not meet requirements for protection visa – Whether ASIO denied plaintiff procedural fairness. Citizenship and migration – Mandatory detention – Plaintiff held in detention as unlawful non-citizen – No third country currently available to receive plaintiff – Whether ss 189 and 196 of Act authorise plaintiff's detention. Words and phrases – \"character test\", \"decision ... relying on one or more of the following Articles of the Refugees Convention, namely, Article 1F, 32 or 33(2)\", \"inconsistent\", \"protection obligations\", \"security\". Australian Security Intelligence Organisation Act 1979 (Cth), ss 4, 37. Migration Act 1958 (Cth), ss 31(3), 36(2), 65, 189, 196, 500, 501, 504(1). Migration Regulations 1994 (Cth), Sched 2, cl 866.225(a), Sched 4, item 4002.",
+      "bench": [
+        "FRENCH",
+        "GUMMOW",
+        "HAYNE",
+        "HEYDON",
+        "CRENNAN",
+        "KIEFEL",
+        "BELL"
+      ],
+      "judgmentAuthors": [
+        {
+          "name": "FRENCH",
+          "type": "Separate judgment",
+          "totalCitations": 155,
+          "paragraphs": "1-74"
+        },
+        {
+          "name": "HAYNE",
+          "type": "Separate judgment",
+          "totalCitations": 68,
+          "paragraphs": "151-227"
+        },
+        {
+          "name": "GUMMOW",
+          "type": "Separate judgment",
+          "totalCitations": 50,
+          "paragraphs": "75-150"
+        },
+        {
+          "name": "KIEFEL",
+          "type": "Separate judgment",
+          "totalCitations": 46,
+          "paragraphs": "407-461"
+        },
+        {
+          "name": "HEYDON",
+          "type": "Separate judgment",
+          "totalCitations": 30,
+          "paragraphs": "228-364"
+        },
+        {
+          "name": "CRENNAN",
+          "type": "Separate judgment",
+          "totalCitations": 19,
+          "paragraphs": "365-406"
+        },
+        {
+          "name": "BELL",
+          "type": "Separate judgment",
+          "totalCitations": 13,
+          "paragraphs": "462-535"
+        }
+      ],
+      "paragraphs": [
+        {
+          "para": 54,
+          "judge": "FRENCH",
+          "citations": 29,
+          "snippet": "Regulations made under s 504 must be \"not inconsistent with\" the Migration Act.  Even without that expressed constraint delegated legislation cannot be repugnant to the Act which confers the power to"
+        },
+        {
+          "para": 56,
+          "judge": "FRENCH",
+          "citations": 29,
+          "snippet": "Section 498(1) of the Migration Act provides: \"The powers conferred by or under this Act shall be exercised in accordance with any applicable regulations under this Act.\" That provision does not autho"
+        },
+        {
+          "para": 413,
+          "judge": "KIEFEL",
+          "citations": 17,
+          "snippet": "In these proceedings, the plaintiff contends that he was denied procedural fairness because the officers of ASIO who conducted the interview did not put to him specific allegations concerning his invo"
+        },
+        {
+          "para": 174,
+          "judge": "HAYNE",
+          "citations": 15,
+          "snippet": "As was pointed out in Morton v Union Steamship Co of New Zealand Ltd[191]: \"Regulations may be adopted for the more effective administration of the provisions actually contained in the Act, but not re"
+        },
+        {
+          "para": 41,
+          "judge": "FRENCH",
+          "citations": 12,
+          "snippet": "The defendants argued, in submissions filed after the hearing, that when ss 500, 502 and 503 were enacted the Parliament was under the misapprehension, only dispelled by the decision of this Court in"
+        },
+        {
+          "para": 68,
+          "judge": "FRENCH",
+          "citations": 11,
+          "snippet": "As to the level of threat sufficient to lift the prohibition against refoulement, the Court said that[100]: \"The threat must be 'serious', in the sense that it must be grounded on objectively reasonab"
+        }
+      ],
+      "autoNotes": [],
+      "userNotes": "",
+      "importedAt": "2026-05-19T12:02:57.175Z"
+    }
+  },
+  "order": [
+    "[2003] HCA 4",
+    "[2012] HCA 46"
+  ]
+}

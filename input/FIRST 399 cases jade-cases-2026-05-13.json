@@ -4826,29 +4826,6 @@
       "userNotes": "",
       "importedAt": "2026-05-10T22:15:43.624Z"
     },
-    "[1997] HCA 56": {
-      "citation": "[1997] HCA 56",
-      "catchwords": "",
-      "bench": [
-        "BRENNAN",
-        "GAUDRON",
-        "McHUGH",
-        "GUMMOW",
-        "KIRBY"
-      ],
-      "judgmentAuthors": [
-        {
-          "name": "BRENNAN, GAUDRON, McHUGH, GUMMOW, KIRBY",
-          "type": "Separate judgment",
-          "totalCitations": 0,
-          "paragraphs": ""
-        }
-      ],
-      "paragraphs": [],
-      "autoNotes": [],
-      "userNotes": "Not registering paragraphs come back to fix manually",
-      "importedAt": "2026-05-10T22:16:09.785Z"
-    },
     "[2004] HCA 60": {
       "citation": "[2004] HCA 60",
       "catchwords": "Trade practices - Misleading or deceptive conduct - Sale of waterfront property - Real estate agent published brochure containing survey diagram obtained from vendor's solicitors - Survey diagram alleged to be inaccurate - Brochure contained a disclaimer by the real estate agent as to the reliability of information from other sources - Purchasers intended to develop property in reliance on the survey diagram - Whether real estate agent made a representation - Whether real estate agent engaged in misleading or deceptive conduct or conduct \"likely to mislead or deceive\". Words and phrases – \"misleading or deceptive conduct\", \"representation\". Fair Trading Act 1987 (NSW), s 42. Trade Practices Act 1974 (Cth), ss 52, 82.",
@@ -7999,29 +7976,6 @@
       "userNotes": "",
       "importedAt": "2026-05-12T09:27:38.344Z"
     },
-    "[1980] AC 74": {
-      "citation": "[1980] AC 74",
-      "catchwords": "",
-      "bench": [
-        "BRENNAN",
-        "TOOHEY",
-        "GAUDRON",
-        "McHUGH",
-        "GUMMOW"
-      ],
-      "judgmentAuthors": [
-        {
-          "name": "BRENNAN, TOOHEY, GAUDRON, McHUGH, GUMMOW",
-          "type": "Separate judgment",
-          "totalCitations": 0,
-          "paragraphs": ""
-        }
-      ],
-      "paragraphs": [],
-      "autoNotes": [],
-      "userNotes": "FIX - no paragraph numbers\n[1997] HCA 53",
-      "importedAt": "2026-05-12T09:28:19.156Z"
-    },
     "[2010] HCA 21": {
       "citation": "[2010] HCA 21",
       "catchwords": "Hogan v Australian Crime Commission Federal Court of Australia – Powers – Restriction of publication of evidence – Section 50 of Federal Court of Australia Act 1976 (Cth) (\"the Act\") provided Federal Court may make such order forbidding or restricting publication of evidence as appears necessary to prevent prejudice to administration of justice or the security of the Commonwealth – Forensic decision to tender documents in evidence, under cover of s 50 order but pending further hearing – Order vacated at further hearing – Whether s 50 order no longer necessary to prevent prejudice to administration of justice – Whether inherent confidentiality sufficient to establish prejudice – Relevance of s 17(1) of the Act, requiring exercise of jurisdiction in open court, and relationship with s 50. Federal Court of Australia – Practice and procedure – Inspection of documents by non-party – Interests of open justice – Principles applicable to exercise of power to grant leave under Federal Court Rules, O 46 r 6(3) – Relevance of existing order made under s 50 of the Act. Words and phrases – \"administration of justice\", \"confidential\", \"necessary\". Federal Court of Australia Act 1976 (Cth), ss 17(1), 50. Federal Court Rules, O 46 r 6(3).",
@@ -9341,29 +9295,6 @@
       "autoNotes": [],
       "userNotes": "",
       "importedAt": "2026-05-12T11:35:18.040Z"
-    },
-    "[1997] HCA 49": {
-      "citation": "[1997] HCA 49",
-      "catchwords": "",
-      "bench": [
-        "TOOHEY",
-        "GAUDRON",
-        "McHUGH",
-        "GUMMOW",
-        "KIRBY"
-      ],
-      "judgmentAuthors": [
-        {
-          "name": "TOOHEY, GAUDRON, McHUGH, GUMMOW, KIRBY",
-          "type": "Separate judgment",
-          "totalCitations": 0,
-          "paragraphs": ""
-        }
-      ],
-      "paragraphs": [],
-      "autoNotes": [],
-      "userNotes": "NEED TO FIX",
-      "importedAt": "2026-05-12T11:37:00.934Z"
     },
     "[2004] HCA 34": {
       "citation": "[2004] HCA 34",
@@ -11183,29 +11114,6 @@
       "autoNotes": [],
       "userNotes": "",
       "importedAt": "2026-05-13T02:25:31.258Z"
-    },
-    "[1997] HCA 47": {
-      "citation": "[1997] HCA 47",
-      "catchwords": "",
-      "bench": [
-        "BRENNAN",
-        "TOOHEY",
-        "GAUDRON",
-        "McHUGH",
-        "KIRBY"
-      ],
-      "judgmentAuthors": [
-        {
-          "name": "BRENNAN, TOOHEY, GAUDRON, McHUGH, KIRBY",
-          "type": "Separate judgment",
-          "totalCitations": 0,
-          "paragraphs": ""
-        }
-      ],
-      "paragraphs": [],
-      "autoNotes": [],
-      "userNotes": "FIx - no paragraph numbers",
-      "importedAt": "2026-05-13T02:26:16.555Z"
     },
     "[2006] HCA 41": {
       "citation": "[2006] HCA 41",
@@ -17227,7 +17135,6 @@
     "[2010] HCA 48",
     "[2002] HCA 46",
     "[2001] HCA 29",
-    "[1997] HCA 56",
     "[2004] HCA 60",
     "[2002] HCA 54",
     "[2000] HCA 3",
@@ -17298,7 +17205,6 @@
     "[1998] HCA 75",
     "[2005] HCA 11",
     "[2003] HCA 18",
-    "[1980] AC 74",
     "[2010] HCA 21",
     "[2005] HCA 7",
     "[2000] HCA 61",
@@ -17332,7 +17238,6 @@
     "[2004] HCA 54",
     "[2000] HCA 56",
     "[2004] HCA 62",
-    "[1997] HCA 49",
     "[2004] HCA 34",
     "[2007] HCA 47",
     "[2002] HCA 16",
@@ -17380,7 +17285,6 @@
     "[2000] HCA 25",
     "[1999] HCA 8",
     "[2005] HCA 4",
-    "[1997] HCA 47",
     "[2006] HCA 41",
     "[2004] HCA 58",
     "[2004] HCA 1",

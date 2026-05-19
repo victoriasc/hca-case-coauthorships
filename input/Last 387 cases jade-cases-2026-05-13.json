@@ -11904,8 +11904,8 @@
       "userNotes": "",
       "importedAt": "2026-05-16T10:30:46.243Z"
     },
-    "[2010] HCA 0": {
-      "citation": "[2010] HCA 0",
+    "[2010] HCA 35": {
+      "citation": "[2010] HCA 35",
       "catchwords": "Pollock v The Queen Criminal law – Defences – Provocation – Elements of provocation – Meaning of \"sudden\" – Whether accused's loss of self-control must immediately follow provocation – Scope of objective test – Whether there exists a discrete requirement that accused must commit fatal act before there has been time for loss of self-control to abate. Criminal procedure – Directions – Use of model directions – Duty to frame directions by reference to issues. Words and phrases – \"loss of self-control\", \"sudden provocation\", \"time for passion to cool\". Criminal Code (Q), s 304.",
       "bench": [
         "FRENCH",
@@ -15648,29 +15648,6 @@
       "userNotes": "",
       "importedAt": "2026-05-17T00:07:31.824Z"
     },
-    "[1997] HCA 55": {
-      "citation": "[1997] HCA 55",
-      "catchwords": "",
-      "bench": [
-        "BRENNAN",
-        "TOOHEY",
-        "GAUDRON",
-        "GUMMOW",
-        "KIRBY"
-      ],
-      "judgmentAuthors": [
-        {
-          "name": "BRENNAN, TOOHEY, GAUDRON, GUMMOW, KIRBY",
-          "type": "Separate judgment",
-          "totalCitations": 0,
-          "paragraphs": "1-9"
-        }
-      ],
-      "paragraphs": [],
-      "autoNotes": [],
-      "userNotes": "no content",
-      "importedAt": "2026-05-17T00:08:24.208Z"
-    },
     "[2006] HCA 17": {
       "citation": "[2006] HCA 17",
       "catchwords": "Dalton v NSW Crime Commission Constitutional law (Cth) − Power with respect to service and execution throughout the Commonwealth of civil and criminal process − Summons served under State law upon person in another State to attend State commission of inquiry with investigative functions − Summons a \"subpoena\" for the purpose of the Service and Execution of Process Act 1992 (Cth) − \"Civil and criminal process\" − Whether \"civil and criminal process\" includes process relating to purely investigative functions of tribunals which are not in aid of an adjudicative function − Whether s 76 of the Service and Execution of Process Act 1992 (Cth) a valid exercise of Commonwealth legislative power. Constitutional law (Cth) – Power with respect to service and execution throughout the Commonwealth of civil and criminal process – Parties did not contend that such power is confined to process of the courts of the States – Whether the High Court can nevertheless consider whether such power is so confined – Paramountcy of the Constitution. Constitutional law (Cth) – Power with respect to service and execution throughout the Commonwealth of civil and criminal process – Whether such power is confined to process of the courts of the States – Whether increased potential for infringement of liberty associated with extending such power to process of State non-court bodies is a consideration supportive of narrower construction of such power – Proliferation of State non-court bodies that issue process – Relevance to constitutional meaning of changing features of modern government. Words and phrases − \"civil and criminal process\". Constitution, s 51(xxiv). Service and Execution of Process Act 1992 (Cth), Pt 4, ss 47-80. New South Wales Crime Commission Act 1985 (NSW), ss 18, 18AA, 35.",
@@ -15892,29 +15869,6 @@
       "autoNotes": [],
       "userNotes": "",
       "importedAt": "2026-05-17T00:15:38.727Z"
-    },
-    "[1997] HCA 48": {
-      "citation": "[1997] HCA 48",
-      "catchwords": "",
-      "bench": [
-        "TOOHEY",
-        "GAUDRON",
-        "McHUGH",
-        "GUMMOW",
-        "KIRBY"
-      ],
-      "judgmentAuthors": [
-        {
-          "name": "TOOHEY, GAUDRON, McHUGH, GUMMOW, KIRBY",
-          "type": "Separate judgment",
-          "totalCitations": 0,
-          "paragraphs": "1-25"
-        }
-      ],
-      "paragraphs": [],
-      "autoNotes": [],
-      "userNotes": "no content",
-      "importedAt": "2026-05-17T00:16:26.095Z"
     },
     "[2012] HCA 27": {
       "citation": "[2012] HCA 27",
@@ -16869,7 +16823,7 @@
     },
     "[2000] HCA 51": {
       "citation": "[2000] HCA 51",
-      "catchwords": "",
+      "catchwords": "special leave, subject of appeal, factual background",
       "bench": [
         "McHUGH",
         "GUMMOW"
@@ -16926,31 +16880,6 @@
       "autoNotes": [],
       "userNotes": "",
       "importedAt": "2026-05-17T00:33:13.066Z"
-    },
-    "[1997] HCA 33": {
-      "citation": "[1997] HCA 33",
-      "catchwords": "",
-      "bench": [
-        "BRENNAN",
-        "DAWSON",
-        "TOOHEY",
-        "GAUDRON",
-        "McHUGH",
-        "GUMMOW",
-        "KIRBY"
-      ],
-      "judgmentAuthors": [
-        {
-          "name": "BRENNAN, DAWSON, TOOHEY, GAUDRON, McHUGH, GUMMOW, KIRBY",
-          "type": "Separate judgment",
-          "totalCitations": 0,
-          "paragraphs": "1-5"
-        }
-      ],
-      "paragraphs": [],
-      "autoNotes": [],
-      "userNotes": "no content",
-      "importedAt": "2026-05-17T00:35:28.058Z"
     },
     "[2005] HCA 41": {
       "citation": "[2005] HCA 41",
@@ -17217,7 +17146,7 @@
     "[2011] HCA 16",
     "[2010] HCA 43",
     "[2011] HCA 7",
-    "[2010] HCA 0",
+    "[2010] HCA 35",
     "[2004] HCA 23",
     "[2005] HCA 76",
     "[1999] HCA 16",
@@ -17317,7 +17246,6 @@
     "[2010] HCA 34",
     "[2004] HCA 11",
     "[1999] HCA 11",
-    "[1997] HCA 55",
     "[2006] HCA 17",
     "[2003] HCA 19",
     "[1998] HCA 25",
@@ -17326,7 +17254,6 @@
     "[2003] HCA 65",
     "[2011] HCA 40",
     "[2001] HCA 73",
-    "[1997] HCA 48",
     "[2012] HCA 27",
     "[2012] HCA 42",
     "[2005] HCA 30",
@@ -17362,7 +17289,6 @@
     "[2000] HCA 51",
     "[2004] HCA 27",
     "[2003] HCA 16",
-    "[1997] HCA 33",
     "[2005] HCA 41"
   ]
 }
