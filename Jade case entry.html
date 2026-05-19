@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JADE Case Database</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root {
+    --bg: #0f0f11;
+    --bg2: #17171a;
+    --bg3: #1e1e22;
+    --border: #2a2a30;
+    --border2: #38383f;
+    --text: #e8e8ec;
+    --muted: #7a7a88;
+    --accent: #c9a96e;
+    --accent2: #a07840;
+    --info: #5b8dd9;
+    --success: #4caf7d;
+    --danger: #d95b5b;
+    --sidebar-w: 280px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; font-family: 'Georgia', serif; background: var(--bg); color: var(--text); font-size: 14px; }
+
+  /* LAYOUT */
+  .app { display: flex; height: 100vh; overflow: hidden; }
+  .sidebar { width: var(--sidebar-w); min-width: var(--sidebar-w); background: var(--bg2); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; }
+  .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+  /* SIDEBAR HEADER */
+  .sidebar-header { padding: 20px 16px 12px; border-bottom: 1px solid var(--border); }
+  .sidebar-header h1 { font-size: 13px; font-weight: normal; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); margin-bottom: 2px; }
+  .sidebar-header p { font-size: 11px; color: var(--muted); font-family: 'Courier New', monospace; }
+
+  /* FILE ACTIONS */
+  .file-actions { padding: 10px 12px; border-bottom: 1px solid var(--border); display: flex; gap: 6px; flex-wrap: wrap; }
+  .file-btn { font-size: 11px; font-family: 'Courier New', monospace; padding: 5px 10px; background: none; border: 1px solid var(--border2); color: var(--muted); cursor: pointer; border-radius: 3px; transition: all 0.15s; white-space: nowrap; }
+  .file-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .file-btn.danger:hover { border-color: var(--danger); color: var(--danger); }
+
+  /* CASE LIST */
+  .cases-header { padding: 12px 16px 8px; display: flex; justify-content: space-between; align-items: center; }
+  .cases-header span { font-size: 11px; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; font-family: 'Courier New', monospace; }
+  .add-btn { font-size: 11px; font-family: 'Courier New', monospace; padding: 4px 10px; background: none; border: 1px solid var(--border2); color: var(--accent); cursor: pointer; border-radius: 3px; transition: all 0.15s; }
+  .add-btn:hover { background: var(--accent); color: var(--bg); }
+  .case-list { flex: 1; overflow-y: auto; padding: 4px 8px 12px; }
+  .case-item { padding: 9px 10px; border-radius: 4px; cursor: pointer; border: 1px solid transparent; margin-bottom: 3px; transition: all 0.12s; }
+  .case-item:hover { background: var(--bg3); border-color: var(--border); }
+  .case-item.active { background: var(--bg3); border-color: var(--accent2); }
+  .case-item-cite { font-size: 12px; font-family: 'Courier New', monospace; color: var(--accent); margin-bottom: 2px; }
+  .case-item-name { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* MAIN HEADER */
+  .main-header { padding: 16px 24px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
+  .main-header h2 { font-size: 15px; font-weight: normal; color: var(--text); }
+  .main-header-actions { display: flex; gap: 8px; }
+  .action-btn { font-size: 11px; font-family: 'Courier New', monospace; padding: 5px 12px; background: none; border: 1px solid var(--border2); color: var(--muted); cursor: pointer; border-radius: 3px; transition: all 0.15s; }
+  .action-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .action-btn.primary { border-color: var(--accent2); color: var(--accent); }
+  .action-btn.primary:hover { background: var(--accent); color: var(--bg); }
+
+  /* TABS */
+  .tab-bar { display: flex; padding: 0 24px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  .tab { font-size: 11px; font-family: 'Courier New', monospace; letter-spacing: 0.06em; padding: 10px 16px 9px; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; background: none; border-top: none; border-left: none; border-right: none; transition: all 0.15s; }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* CONTENT PANES */
+  .pane { display: none; flex: 1; overflow-y: auto; padding: 24px; }
+  .pane.active { display: block; }
+
+  /* IMPORT PANE */
+  .import-instructions { background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; padding: 16px 20px; margin-bottom: 20px; }
+  .import-instructions ol { padding-left: 18px; }
+  .import-instructions li { font-size: 12px; color: var(--muted); line-height: 2; }
+  .import-instructions code { font-family: 'Courier New', monospace; color: var(--accent); font-size: 11px; background: var(--bg3); padding: 1px 5px; border-radius: 2px; }
+  label.field-label { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-family: 'Courier New', monospace; display: block; margin-bottom: 8px; }
+  textarea.tsv-input { width: 100%; min-height: 160px; background: var(--bg2); border: 1px solid var(--border); border-radius: 4px; padding: 12px; font-family: 'Courier New', monospace; font-size: 12px; color: var(--text); resize: vertical; outline: none; transition: border-color 0.15s; }
+  textarea.tsv-input:focus { border-color: var(--accent2); }
+  .btn-row { display: flex; gap: 10px; margin-top: 12px; align-items: center; flex-wrap: wrap; }
+  .btn { font-family: 'Courier New', monospace; font-size: 12px; padding: 7px 16px; border: 1px solid var(--border2); background: none; color: var(--muted); cursor: pointer; border-radius: 3px; transition: all 0.15s; }
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+  .btn.save { border-color: var(--accent2); color: var(--accent); }
+  .btn.save:hover { background: var(--accent); color: var(--bg); }
+  .status { font-family: 'Courier New', monospace; font-size: 12px; padding: 6px 12px; border-radius: 3px; }
+  .status.ok { color: var(--success); }
+  .status.err { color: var(--danger); }
+
+  /* DETAIL PANE */
+  .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+  .meta-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; padding: 14px 16px; }
+  .meta-card.wide { grid-column: 1 / -1; }
+  .meta-label { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); font-family: 'Courier New', monospace; margin-bottom: 8px; }
+  .meta-value { font-size: 13px; color: var(--text); line-height: 1.6; }
+  .meta-value.citation { font-family: 'Courier New', monospace; color: var(--accent); font-size: 15px; }
+  .judge-pill { display: inline-block; font-family: 'Courier New', monospace; font-size: 11px; padding: 3px 9px; border: 1px solid var(--border2); border-radius: 2px; color: var(--muted); margin: 2px; }
+  .section-title { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); font-family: 'Courier New', monospace; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+  .para-table { width: 100%; border-collapse: collapse; }
+  .para-table th { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-family: 'Courier New', monospace; font-weight: normal; padding: 6px 12px; text-align: left; border-bottom: 1px solid var(--border); }
+  .para-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: top; font-size: 12px; line-height: 1.6; }
+  .para-table tr:last-child td { border-bottom: none; }
+  .para-table tr:hover td { background: var(--bg2); }
+  .para-num-cell { font-family: 'Courier New', monospace; color: var(--accent); font-size: 14px; width: 48px; text-align: center; }
+  .cite-cell { font-family: 'Courier New', monospace; color: var(--info); font-size: 13px; white-space: nowrap; text-align: right; width: 100px; }
+  .judge-cell { color: var(--muted); font-size: 11px; white-space: nowrap; width: 200px; }
+  .snippet-cell { color: var(--text); }
+
+  /* EMPTY STATE */
+  .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; min-height: 300px; color: var(--muted); text-align: center; gap: 12px; }
+  .empty-icon { font-size: 36px; opacity: 0.3; }
+  .empty-state p { font-size: 13px; }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+  /* PREVIEW TABLE */
+  .preview-wrap { margin-top: 20px; background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+  .preview-wrap .section-title { padding: 12px 16px 10px; margin: 0; border-bottom: 1px solid var(--border); }
+
+  /* HIDDEN FILE INPUT */
+  #file-input, #restore-input { display: none; }
+
+  /* SORT BAR */
+  .sort-bar { display: flex; gap: 4px; padding: 6px 8px 10px; }
+  .sort-btn { font-size: 10px; font-family: 'Courier New', monospace; padding: 3px 8px; background: none; border: 1px solid transparent; color: var(--muted); cursor: pointer; border-radius: 2px; }
+  .sort-btn:hover { color: var(--text); }
+  .sort-btn.active { border-color: var(--border2); color: var(--accent); }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <h1>JADE Cases</h1>
+      <p>citation database</p>
+    </div>
+    <div class="file-actions">
+      <button class="file-btn" onclick="exportSaveFile()">↓ Backup JSON</button>
+      <button class="file-btn" onclick="document.getElementById('file-input').click()">↑ Restore JSON</button>
+      <button class="file-btn danger" onclick="clearAll()">✕ Clear all</button>
+    </div>
+    <div class="cases-header">
+      <span id="case-count">0 cases</span>
+      <button class="add-btn" onclick="showImport()">+ Import</button>
+    </div>
+    <div class="sort-bar">
+      <button class="sort-btn active" id="sort-manual" onclick="setSort('manual')">Manual</button>
+      <button class="sort-btn" id="sort-cite" onclick="setSort('cite')">Citation</button>
+      <button class="sort-btn" id="sort-az" onclick="setSort('az')">A–Z</button>
+    </div>
+    <div class="case-list" id="case-list"></div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="main-header">
+      <h2 id="main-title">JADE Case Database</h2>
+      <div class="main-header-actions">
+        <button class="action-btn primary" onclick="exportExcel()">↓ Export Excel</button>
+        <button class="action-btn" onclick="exportCSV()">↓ Export CSV</button>
+      </div>
+    </div>
+
+    <div class="tab-bar" id="tab-bar" style="display:none">
+      <button class="tab active" onclick="switchTab('detail')">Case detail</button>
+      <button class="tab" onclick="switchTab('import')">Import new</button>
+    </div>
+
+    <div id="pane-welcome" class="pane active">
+      <div class="empty-state">
+        <div class="empty-icon">⚖</div>
+        <p>Select a case from the sidebar,<br>or import one to get started.</p>
+        <button class="btn save" onclick="showImport()" style="margin-top:8px">+ Import first case</button>
+      </div>
+    </div>
+
+    <div id="pane-import" class="pane">
+      <div class="import-instructions">
+        <ol>
+          <li>Open the JADE case in your browser</li>
+          <li>Open DevTools (<code>F12</code>) → Console tab</li>
+          <li>Paste and run the extractor script</li>
+          <li>The TSV data is copied to your clipboard automatically</li>
+          <li>Paste it below (<code>Ctrl+V</code>) and click Import</li>
+        </ol>
+      </div>
+      <label class="field-label">TSV data from console script</label>
+      <textarea class="tsv-input" id="tsv-input" placeholder="Paste TSV output here..."></textarea>
+      <div class="btn-row">
+        <button class="btn" onclick="previewImport()">Preview</button>
+        <button class="btn save" id="confirm-import-btn" style="display:none" onclick="confirmImport()">Save case</button>
+        <span id="import-status"></span>
+      </div>
+      <div id="import-preview"></div>
+    </div>
+
+    <div id="pane-detail" class="pane">
+      <div id="case-detail-content"></div>
+    </div>
+  </div>
+</div>
+
+<input type="file" id="file-input" accept=".json" onchange="loadFile(event)">
+<input type="file" id="restore-input" accept=".json">
+<input type="file" id="case-json-input" accept=".json" onchange="importCaseJSON(event)">
+
+<script>
+// ─── STATE ───────────────────────────────────────────────────────────────────
+let db = {};          // { citation: caseObj }
+let order = [];       // citation keys in display order
+let activeCite = null;
+let sortMode = 'manual';
+let previewData = null;
+
+// ─── PERSISTENCE ─────────────────────────────────────────────────────────────
+function persist() {
+  try { localStorage.setItem('jade_db_v2', JSON.stringify({ db, order })); } catch(e) {}
+}
+function load() {
+  try {
+    const raw = localStorage.getItem('jade_db_v2');
+    if (raw) { const s = JSON.parse(raw); db = s.db || {}; order = s.order || Object.keys(db); }
+  } catch(e) {}
+}
+
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
+// Strip trailing titles (CJ, ACJ, J, JA, JJ and dotted variants) and punctuation
+function stripTitle(name) {
+  return name.replace(/\s*\b(CJ|ACJ|JJ|JA|J\.?A?\.?)\b\.?\s*$/i, '').replace(/[.,]+$/, '').trim();
+}
+
+// Split a bench string like "BRENNAN CJ, McHUGH, GUMMOW, KIRBY AND HAYNE JJ"
+// into individual names, handling both ", " and " AND " separators
+function parseBench(val) {
+  // First split on comma, then split each chunk on " AND "
+  const raw = val.split(',').flatMap(chunk => chunk.split(/\s+AND\s+/));
+  return raw.map(s => stripTitle(s.trim())).filter(Boolean);
+}
+
+// Clean a judge string from the paragraph/author rows, e.g. "McHUGH, GUMMOW, KIRBY AND HAYNE JJ."
+function cleanJudgeName(name) {
+  // Split on AND and comma, strip titles from each segment, rejoin
+  const parts = name.split(/,|\s+AND\s+/).map(s => stripTitle(s.trim())).filter(Boolean);
+  return parts.join(', ');
+}
+
+// ─── PARSE TSV ───────────────────────────────────────────────────────────────
+function parseTSV(raw) {
+  const lines = raw.trim().split('\n');
+  const obj = { citation:'', catchwords:'', bench:[], judgmentAuthors:[], paragraphs:[], autoNotes:[], userNotes:'', importedAt: new Date().toISOString() };
+  let inAuthors = false, inParas = false, inNotes = false;
+  for (let line of lines) {
+    const cols = line.split('\t');
+    const key = cols[0]?.trim();
+    const val = cols.slice(1).join('\t').trim();
+    // Detect the warning-note block from the extractor (lines starting with ⚠ Note:)
+    // The block continues with indented '  - ...' lines until a blank line or new section.
+    if (key && (key.startsWith('⚠') || key.startsWith('⚠'))) {
+      obj.autoNotes.push(key.replace(/^[⚠⚠]\s*/, '').trim());
+      inNotes = true; inAuthors = false; inParas = false;
+      continue;
+    }
+    if (inNotes && key && key.startsWith('-')) {
+      obj.autoNotes.push(key.replace(/^-\s*/, '').trim());
+      continue;
+    }
+    if (inNotes && !key) { inNotes = false; continue; }
+    if (key === 'Citation') { obj.citation = val; inAuthors = false; inParas = false; inNotes = false; }
+    else if (key === 'Catchwords') { obj.catchwords = val; inAuthors = false; inParas = false; inNotes = false; }
+    else if (key?.startsWith('Bench')) { obj.bench = parseBench(val); inAuthors = false; inParas = false; inNotes = false; }
+    else if (key === 'Judgment authors') { inAuthors = true; inParas = false; inNotes = false; }
+    else if (key === 'Paragraph') { inAuthors = false; inParas = true; inNotes = false; }
+    else if (inAuthors && key) { obj.judgmentAuthors.push({ name: cleanJudgeName(key), type: cols[1]?.trim()||'', totalCitations: parseInt(cols[2])||0, paragraphs: cols[3]?.trim()||'' }); }
+    else if (inParas && key && !isNaN(parseInt(key))) {
+      obj.paragraphs.push({ para: parseInt(key), judge: cleanJudgeName(cols[1]?.trim()||''), citations: parseInt(cols[2])||0, snippet: cols[3]?.trim()||'' });
+    }
+  }
+  return obj;
+}
+
+// ─── IMPORT ──────────────────────────────────────────────────────────────────
+function previewImport() {
+  const raw = document.getElementById('tsv-input').value;
+  const statusEl = document.getElementById('import-status');
+  const previewEl = document.getElementById('import-preview');
+  previewEl.innerHTML = '';
+  document.getElementById('confirm-import-btn').style.display = 'none';
+  if (!raw.trim()) { setStatus(statusEl, 'Paste TSV data first.', false); return; }
+  try {
+    previewData = parseTSV(raw);
+    if (!previewData.citation && !previewData.bench.length) { setStatus(statusEl, 'Could not parse — paste the full TSV output.', false); return; }
+    previewEl.innerHTML = '<div class="preview-wrap"><div class="section-title">Preview</div>' + renderCaseHTML(previewData) + '</div>';
+    document.getElementById('confirm-import-btn').style.display = '';
+    setStatus(statusEl, 'Ready to save.', true);
+  } catch(e) { setStatus(statusEl, 'Parse error: ' + e.message, false); }
+}
+
+function confirmImport() {
+  if (!previewData) return;
+  const key = previewData.citation || ('case_' + Date.now());
+  db[key] = previewData;
+  if (!order.includes(key)) order.push(key);
+  persist();
+  renderSidebar();
+  setActiveCite(key);
+  document.getElementById('tsv-input').value = '';
+  document.getElementById('import-preview').innerHTML = '';
+  document.getElementById('confirm-import-btn').style.display = 'none';
+  setStatus(document.getElementById('import-status'), '', true);
+  previewData = null;
+}
+
+// ─── RENDER SIDEBAR ──────────────────────────────────────────────────────────
+function getSortedOrder() {
+  if (sortMode === 'manual') return [...order];
+  const keys = Object.keys(db);
+  if (sortMode === 'cite') return keys.sort((a,b) => {
+    const ya = parseInt(a.match(/\d{4}/)?.[0]||0), yb = parseInt(b.match(/\d{4}/)?.[0]||0);
+    if (ya !== yb) return yb - ya;
+    return a.localeCompare(b);
+  });
+  if (sortMode === 'az') return keys.sort((a,b) => {
+    const na = db[a].catchwords?.split(' - ')?.[0]||a;
+    const nb = db[b].catchwords?.split(' - ')?.[0]||b;
+    return na.localeCompare(nb);
+  });
+  return [...order];
+}
+
+function renderSidebar() {
+  const keys = getSortedOrder().filter(k => db[k]);
+  document.getElementById('case-count').textContent = keys.length + ' case' + (keys.length!==1?'s':'');
+  const list = document.getElementById('case-list');
+  list.innerHTML = keys.map(k => {
+    const c = db[k];
+    const name = c.catchwords ? c.catchwords.split(' - ')[0].trim().slice(0,50) : '';
+    return `<div class="case-item${activeCite===k?' active':''}" onclick="setActiveCite('${k.replace(/'/g,"\\'")}')">
+      <div class="case-item-cite">${c.citation||k}</div>
+      ${name?`<div class="case-item-name">${name}</div>`:''}
+    </div>`;
+  }).join('');
+}
+
+function setActiveCite(key) {
+  activeCite = key;
+  renderSidebar();
+  showCaseDetail(key);
+}
+
+// ─── CASE DETAIL ─────────────────────────────────────────────────────────────
+function renderCaseHTML(c) {
+  let html = `<div style="padding:0 16px 20px">`;
+
+  html += `<div class="meta-grid">`;
+  html += `<div class="meta-card wide"><div class="meta-label">Citation</div><div class="meta-value citation">${c.citation||'—'}</div></div>`;
+  if (c.bench?.length) html += `<div class="meta-card"><div class="meta-label">Bench</div><div class="meta-value">${c.bench.map(j=>`<span class="judge-pill">${j}</span>`).join('')}</div></div>`;
+  if (c.judgmentAuthors?.length) {
+    const sortedAuthors = [...c.judgmentAuthors].sort((a,b) => (b.totalCitations||0) - (a.totalCitations||0));
+    html += `<div class="meta-card"><div class="meta-label">Judgment authors</div><div class="meta-value">${sortedAuthors.map(a => {
+      const badge = a.totalCitations ? ` <span style="font-family:'Courier New',monospace;font-size:10px;color:var(--accent);background:var(--bg3);border:1px solid var(--border2);border-radius:2px;padding:1px 5px;margin-left:4px">${a.totalCitations.toLocaleString()}</span>` : '';
+      const paraRange = a.paragraphs ? `<span style="font-family:'Courier New',monospace;font-size:10px;color:var(--muted);margin-left:4px">¶${a.paragraphs}</span>` : '';
+      return `<span class="judge-pill">${a.name}${badge}${paraRange}</span>`;
+    }).join('')}</div></div>`;
+  }
+  if (c.catchwords) html += `<div class="meta-card wide"><div class="meta-label">Catchwords</div><div class="meta-value" style="font-size:12px">${c.catchwords}</div></div>`;
+  html += `</div>`;
+
+  // Auto notes (extractor warnings) — shown in an amber panel
+  if (c.autoNotes && c.autoNotes.length) {
+    html += `<div style="background:rgba(255,176,80,0.08);border:1px solid rgba(255,176,80,0.4);border-radius:6px;padding:12px 16px;margin:12px 0">
+      <div style="font-family:'Courier New',monospace;font-size:11px;color:#ffb050;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">⚠ Extractor notes</div>
+      <ul style="margin:0;padding-left:18px;font-size:12px;color:var(--text);line-height:1.6">
+        ${c.autoNotes.map(n => `<li>${n.replace(/</g,'&lt;')}</li>`).join('')}
+      </ul>
+    </div>`;
+  }
+
+  // User notes — editable textarea
+  const safeKey = (c.citation || '').replace(/'/g, "\\'");
+  html += `<div style="margin:16px 0">
+    <div class="meta-label" style="margin-bottom:6px">Your notes</div>
+    <textarea id="user-notes-area"
+      placeholder="Add personal notes about this case (saved automatically)…"
+      style="width:100%;min-height:80px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:10px;color:var(--text);font-family:inherit;font-size:13px;line-height:1.5;resize:vertical;box-sizing:border-box"
+      oninput="saveUserNotes('${safeKey}', this.value)">${(c.userNotes||'').replace(/</g,'&lt;')}</textarea>
+  </div>`;
+
+  if (c.paragraphs?.length) {
+    html += `<div class="section-title">Most cited paragraphs (${c.paragraphs.length})</div>`;
+    html += `<table class="para-table"><thead><tr>
+      <th style="text-align:center">¶</th>
+      <th>Snippet</th>
+      <th>Judge</th>
+      <th style="text-align:right">Citations</th>
+    </tr></thead><tbody>`;
+    c.paragraphs.forEach(p => {
+      html += `<tr>
+        <td class="para-num-cell">${p.para}</td>
+        <td class="snippet-cell">${p.snippet}</td>
+        <td class="judge-cell">${p.judge}</td>
+        <td class="cite-cell">${p.citations.toLocaleString()}</td>
+      </tr>`;
+    });
+    html += `</tbody></table>`;
+  }
+  html += `</div>`;
+  return html;
+}
+
+function saveUserNotes(key, text) {
+  if (!db[key]) return;
+  db[key].userNotes = text;
+  persist();
+}
+
+function showCaseDetail(key) {
+  const c = db[key]; if (!c) return;
+  document.getElementById('main-title').textContent = c.citation || key;
+  document.getElementById('tab-bar').style.display = 'flex';
+  switchTab('detail');
+  document.getElementById('case-detail-content').innerHTML =
+    `<div style="display:flex;justify-content:flex-end;padding:0 0 8px"><button class="btn" style="color:var(--danger);border-color:var(--danger)" onclick="deleteCase('${key.replace(/'/g,"\\'")}')">Delete case</button></div>` +
+    renderCaseHTML(c);
+  document.getElementById('pane-welcome').classList.remove('active');
+}
+
+function deleteCase(key) {
+  if (!confirm('Delete "' + key + '"?')) return;
+  delete db[key];
+  order = order.filter(k => k !== key);
+  if (activeCite === key) {
+    activeCite = null;
+    document.getElementById('tab-bar').style.display = 'none';
+    document.getElementById('pane-detail').classList.remove('active');
+    document.getElementById('pane-welcome').classList.add('active');
+    document.getElementById('main-title').textContent = 'JADE Case Database';
+  }
+  persist();
+  renderSidebar();
+}
+
+// ─── TABS ─────────────────────────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', (i===0&&name==='detail')||(i===1&&name==='import')));
+  document.getElementById('pane-detail').classList.toggle('active', name==='detail');
+  document.getElementById('pane-import').classList.toggle('active', name==='import');
+  document.getElementById('pane-welcome').classList.remove('active');
+}
+
+function showImport() {
+  if (activeCite) {
+    document.getElementById('tab-bar').style.display = 'flex';
+    switchTab('import');
+  } else {
+    document.getElementById('pane-welcome').classList.remove('active');
+    document.getElementById('pane-import').classList.add('active');
+  }
+}
+
+// ─── SORT ────────────────────────────────────────────────────────────────────
+function setSort(mode) {
+  sortMode = mode;
+  ['manual','cite','az'].forEach(m => document.getElementById('sort-'+m).classList.toggle('active', m===mode));
+  renderSidebar();
+}
+
+// ─── STATUS ──────────────────────────────────────────────────────────────────
+function setStatus(el, msg, ok) {
+  el.textContent = msg;
+  el.className = 'status ' + (ok ? 'ok' : 'err');
+  if (msg) setTimeout(() => { if (el.textContent === msg) el.textContent = ''; }, 3500);
+}
+
+// ─── SAVE / LOAD FILE ────────────────────────────────────────────────────────
+function exportSaveFile() {
+  const data = JSON.stringify({ db, order }, null, 2);
+  const blob = new Blob([data], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url;
+  a.download = 'jade-cases-' + new Date().toISOString().slice(0,10) + '.json';
+  a.click(); URL.revokeObjectURL(url);
+}
+
+function loadFile(e) {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const s = JSON.parse(ev.target.result);
+      if (s.db) { Object.assign(db, s.db); s.order?.forEach(k => { if (!order.includes(k)) order.push(k); }); }
+      else { Object.assign(db, s); Object.keys(s).forEach(k => { if (!order.includes(k)) order.push(k); }); }
+      persist(); renderSidebar();
+      alert('Loaded ' + Object.keys(s.db||s).length + ' case(s).');
+    } catch(err) { alert('Could not load file: ' + err.message); }
+    e.target.value = '';
+  };
+  reader.readAsText(file);
+}
+
+function exportCaseJSON() {
+  if (!activeCite || !db[activeCite]) { alert('No case selected.'); return; }
+  const c = db[activeCite];
+  const data = JSON.stringify(c, null, 2);
+  const blob = new Blob([data], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url;
+  const safeName = (c.citation || activeCite).replace(/[\[\]\s]+/g, '-').replace(/[^a-zA-Z0-9\-]/g, '');
+  a.download = 'jade-case-' + safeName + '.json';
+  a.click(); URL.revokeObjectURL(url);
+}
+
+function importCaseJSON(e) {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const c = JSON.parse(ev.target.result);
+      // Accept either a single case object or a full db dump
+      if (c.db) {
+        // Full database file — hand off to loadFile logic
+        Object.assign(db, c.db);
+        c.order?.forEach(k => { if (!order.includes(k)) order.push(k); });
+        persist(); renderSidebar();
+        alert('Loaded ' + Object.keys(c.db).length + ' case(s) from database file.');
+      } else if (c.citation || c.bench || c.paragraphs) {
+        // Single case object
+        const key = c.citation || ('case_' + Date.now());
+        const isUpdate = !!db[key];
+        db[key] = { importedAt: new Date().toISOString(), ...c };
+        if (!order.includes(key)) order.push(key);
+        persist(); renderSidebar(); setActiveCite(key);
+        alert((isUpdate ? 'Updated' : 'Imported') + ': ' + key);
+      } else {
+        alert('Unrecognised JSON format — expected a case object or a database file.');
+      }
+    } catch(err) { alert('Could not load file: ' + err.message); }
+    e.target.value = '';
+  };
+  reader.readAsText(file);
+}
+
+function clearAll() {
+  if (!confirm('Delete all saved cases?')) return;
+  db = {}; order = []; activeCite = null;
+  persist(); renderSidebar();
+  document.getElementById('tab-bar').style.display = 'none';
+  document.getElementById('pane-detail').classList.remove('active');
+  document.getElementById('pane-import').classList.remove('active');
+  document.getElementById('pane-welcome').classList.add('active');
+  document.getElementById('main-title').textContent = 'JADE Case Database';
+}
+
+// ─── EXPORT EXCEL ────────────────────────────────────────────────────────────
+function exportExcel() {
+  const keys = getSortedOrder().filter(k => db[k]);
+  if (!keys.length) { alert('No cases to export.'); return; }
+  const wb = XLSX.utils.book_new();
+
+  // Sheet 1 — All paragraphs
+  const rows = [['Citation','Paragraph','Judge','Citations','Snippet']];
+  keys.forEach(k => {
+    const c = db[k];
+    (c.paragraphs||[]).forEach(p => rows.push([c.citation, p.para, p.judge, p.citations, p.snippet]));
+  });
+  const ws1 = XLSX.utils.aoa_to_sheet(rows);
+  ws1['!cols'] = [{wch:18},{wch:10},{wch:30},{wch:12},{wch:80}];
+  XLSX.utils.book_append_sheet(wb, ws1, 'Paragraphs');
+
+  // Sheet 2 — Case index
+  const meta = [['Citation','Bench','Judgment Authors','Catchwords','Auto Notes','User Notes','Saved']];
+  keys.forEach(k => {
+    const c = db[k];
+    // Format each judgment as [Name] or [Name1, Name2], then join: [[Brennan], [McHugh, Gummow]]
+    const judgmentAuthors = (c.judgmentAuthors||[])
+      .sort((a,b) => (b.totalCitations||0) - (a.totalCitations||0))
+      .map(a => '[' + a.name + (a.totalCitations ? ': ' + a.totalCitations : '') + (a.paragraphs ? ' ¶' + a.paragraphs : '') + ']')
+      .join(', ');
+    const judgmentAuthorsFmt = judgmentAuthors ? judgmentAuthors : '';
+    const autoNotesFmt = (c.autoNotes||[]).join(' | ');
+    const userNotesFmt = c.userNotes || '';
+    meta.push([c.citation, c.bench?.join(', ')||'', judgmentAuthorsFmt, c.catchwords||'', autoNotesFmt, userNotesFmt, new Date(c.importedAt).toLocaleDateString()]);
+  });
+  const ws2 = XLSX.utils.aoa_to_sheet(meta);
+  ws2['!cols'] = [{wch:18},{wch:45},{wch:45},{wch:80},{wch:50},{wch:50},{wch:12}];
+  XLSX.utils.book_append_sheet(wb, ws2, 'Case Index');
+
+  XLSX.writeFile(wb, 'jade-cases-' + new Date().toISOString().slice(0,10) + '.xlsx');
+}
+
+// ─── EXPORT CSV ──────────────────────────────────────────────────────────────
+function exportCSV() {
+  const keys = getSortedOrder().filter(k => db[k]);
+  if (!keys.length) { alert('No cases to export.'); return; }
+  const esc = v => '"' + String(v??'').replace(/"/g,'""') + '"';
+  const header = ['Citation','Paragraph','Judge','Citations','Snippet'];
+  const rows = keys.flatMap(k => (db[k].paragraphs||[]).map(p => [db[k].citation, p.para, p.judge, p.citations, p.snippet]));
+  const csv = [header, ...rows].map(r => r.map(esc).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url;
+  a.download = 'jade-cases-' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click(); URL.revokeObjectURL(url);
+}
+
+// ─── INIT ────────────────────────────────────────────────────────────────────
+load();
+renderSidebar();
+</script>
+</body>
+</html>
