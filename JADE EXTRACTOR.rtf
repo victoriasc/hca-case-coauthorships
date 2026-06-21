@@ -1,0 +1,960 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2870
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fmodern\fcharset0 Courier;}
+{\colortbl;\red255\green255\blue255;}
+{\*\expandedcolortbl;;}
+\paperw11900\paperh16840\margl1440\margr1440\vieww11520\viewh8400\viewkind0
+\deftab720
+\pard\pardeftab720\partightenfactor0
+
+\f0\fs26 \cf0 \expnd0\expndtw0\kerning0
+// ============================================================\
+// JADE Most-Cited Paragraphs Extractor v26 (scroll-sync)\
+// Usage: Open any JADE case, run in DevTools Console (F12)\
+// Then Ctrl+V directly into the Case Database widget\
+// Change THRESHOLD below to adjust minimum citation count\
+// ============================================================\
+\
+(function() \{\
+\
+var THRESHOLD = 100;\
+var results = [];\
+var allLis = [];\
+var pJudgeMapSorted = [];\
+var rawGlossItems = [];\
+var seenGlossKeys = \{\};\
+\
+var ALL_JUDGES = [\
+  'TOOHEY','GAUDRON','McHUGH','GUMMOW','KIRBY','HAYNE',\
+  'CALLINAN','GLEESON','HEYDON','CRENNAN','KIEFEL','FRENCH',\
+  'BELL','GAGELER','KEANE','NETTLE','GORDON','EDELMAN',\
+  'STEWARD','JAGOT','BEECH-JONES','BRENNAN','MASON','DEANE','DAWSON'\
+];\
+\
+function normNL(str) \{ return (str||'').replace(/\\u00a0/g,' '); \}\
+function normSP(str) \{ return normNL(str).replace(/\\s*\\n\\s*/g,' ').trim(); \}\
+\
+function parseJudgeHeading(text) \{\
+  var remaining = text;\
+  var names = [];\
+  var finalTitle = '';\
+  var nameRe = new RegExp('^(' + ALL_JUDGES.join('|') + ')(\\\\s+(?:CJ|ACJ|JJ|JA|J)\\\\.?)?');\
+  var sepRe = /^(?:,\\s*|\\s+(?:AND|and|And)\\s+)/;\
+  while (remaining.length > 0) \{\
+    var nm = remaining.match(nameRe);\
+    if (!nm) break;\
+    var name = nm[1];\
+    var inlineTitle = nm[2] ? nm[2].trim().replace(/\\.$/, '') : '';\
+    names.push(name);\
+    remaining = remaining.slice(nm[0].length);\
+    if (inlineTitle) \{\
+      finalTitle = inlineTitle;\
+      var sep = remaining.match(sepRe);\
+      if (sep) \{ remaining = remaining.slice(sep[0].length); continue; \}\
+      else break;\
+    \}\
+    var sep = remaining.match(sepRe);\
+    if (sep) \{ remaining = remaining.slice(sep[0].length); continue; \}\
+    var tm = remaining.match(/^\\s*(CJ|ACJ|JJ|JA|J)\\.?/);\
+    if (tm) \{ finalTitle = tm[1]; remaining = remaining.slice(tm[0].length); break; \}\
+    break;\
+  \}\
+  if (names.length === 0 || !finalTitle) return null;\
+  if (!names.every(function(n) \{ return ALL_JUDGES.indexOf(n) !== -1; \})) return null;\
+  var after = remaining.replace(/^[\\s.]+/, '');\
+  return \{ names: names, title: finalTitle, after: after \};\
+\}\
+\
+function formatJudge(names, title) \{\
+  return names.length === 1 ? names[0] + ' ' + title : names.join(', ') + ' ' + title;\
+\}\
+\
+function snapRect(el) \{\
+  var r = el.getBoundingClientRect();\
+  if (r.top === 0 && r.bottom === 0) return null;\
+  return \{\
+    top: Math.round(r.top + window.scrollY),\
+    bottom: Math.round(r.bottom + window.scrollY)\
+  \};\
+\}\
+\
+// FIX v25: find the nearest li[value] paragraph for a gloss item at a given\
+// document top position. Used to give each gloss item a stable identity for\
+// deduplication, since the same gloss item may be captured multiple times\
+// during scroll with slightly different docTop values due to DOM recycling.\
+// FIX v26: also consider inline-numbered <p> elements as paragraph anchors,\
+// for older HCA cases that don't use li[value] for paragraph numbering.\
+function findNearestParaValue(glossDocTop) \{\
+  var bestVal = null;\
+  var bestDist = Infinity;\
+\
+  function consider(val, top) \{\
+    if (top === 0) return;\
+    var dist = glossDocTop - top;\
+    // Gloss items are anchored to the paragraph at or above them; prefer the\
+    // closest paragraph whose top <= glossDocTop (with small tolerance for rounding).\
+    if (dist >= -10 && dist < bestDist) \{\
+      bestDist = dist;\
+      bestVal = val;\
+    \}\
+  \}\
+\
+  document.querySelectorAll('li[value]').forEach(function(li) \{\
+    var val = parseInt(li.getAttribute('value'));\
+    if (isNaN(val)) return;\
+    var r = li.getBoundingClientRect();\
+    if (r.top === 0 && r.bottom === 0) return;\
+    consider(val, Math.round(r.top + window.scrollY));\
+  \});\
+\
+  // FIX v26: also check inline-numbered <p> elements as fallback paragraphs\
+  document.querySelectorAll('p').forEach(function(p) \{\
+    var text = (p.innerText || '').trim();\
+    var m = text.match(/^(\\d\{1,3\})\\.?\\s+[A-Z]/);\
+    if (!m) return;\
+    var val = parseInt(m[1]);\
+    if (val < 1 || val > 999) return;\
+    var r = p.getBoundingClientRect();\
+    if (r.top === 0 && r.bottom === 0) return;\
+    consider(val, Math.round(r.top + window.scrollY));\
+  \});\
+\
+  return bestVal;\
+\}\
+\
+// ---------------------------------------------------------------------------\
+// 1. CITATION\
+// ---------------------------------------------------------------------------\
+var citation = '';\
+var citMatch = normSP(document.body.innerText).match(/\\[\\d\{4\}\\]\\s+[A-Z]+\\s+\\d+/);\
+if (citMatch) citation = citMatch[0].trim();\
+\
+// ---------------------------------------------------------------------------\
+// 2. BENCH\
+// ---------------------------------------------------------------------------\
+var seg0 = document.querySelector('#bnj_sdx_0');\
+var headerLines = seg0 ? normNL(seg0.innerText).split('\\n') : [];\
+var benchNames = [];\
+var benchDone = false;\
+for (var i = 0; i < headerLines.length && !benchDone; i++) \{\
+  var line = headerLines[i].trim();\
+  if (!line) continue;\
+  var stripped = line\
+    .replace(/\\b(?:CJ|ACJ|JJ?|JA)\\b\\.?/g, '')\
+    .replace(/\\s+(?:AND|and|And)\\s+/g, ',')\
+    .split(',').map(function(t)\{ return t.trim(); \}).filter(Boolean);\
+  var allKnown = stripped.length > 0 && stripped.every(function(t)\{\
+    return ALL_JUDGES.indexOf(t) !== -1;\
+  \});\
+  if (allKnown) \{\
+    stripped.forEach(function(n)\{ if (benchNames.indexOf(n)===-1) benchNames.push(n); \});\
+  \} else if (benchNames.length > 0) \{\
+    benchDone = true;\
+  \}\
+\}\
+\
+// ---------------------------------------------------------------------------\
+// 3. CATCHWORDS\
+// ---------------------------------------------------------------------------\
+var catchwords = '';\
+var catchwordsTop = 0;\
+var articleEl = document.querySelector('.article-text');\
+if (articleEl) \{\
+  var full = normNL(articleEl.innerText);\
+  var cwIdx = full.indexOf('CATCHWORDS');\
+  if (cwIdx > -1) \{\
+    var after = full.slice(cwIdx + 10).trim();\
+    var nextHeading = after.search(/\\n[A-Z]\{4,\}[\\s\\n]/);\
+\
+    // FIX v25: also cut off at the first inline judgment heading, since some\
+    // JADE pages render the judge names in the same text block as catchwords\
+    // (no preceding newline). Match one or more judge surnames separated by\
+    // commas / AND / and, followed by a title (CJ, ACJ, JJ, JA, or J).\
+    var judgeNamesAlt = ALL_JUDGES.join('|');\
+    var inlineJudgePattern = new RegExp(\
+      '(?:^|[\\\\s.])(' + judgeNamesAlt + ')(?:(?:,\\\\s*|\\\\s+(?:AND|and|And)\\\\s+)(?:' +\
+      judgeNamesAlt + '))*\\\\s+(?:CJ|ACJ|JJ|JA|J)\\\\.',\
+      ''\
+    );\
+    var inlineMatch = after.match(inlineJudgePattern);\
+    var inlineIdx = inlineMatch ? after.indexOf(inlineMatch[0]) : -1;\
+\
+    // Use whichever cutoff comes first (newline-heading or inline judge name)\
+    var cutoff = -1;\
+    if (nextHeading > -1 && inlineIdx > -1) cutoff = Math.min(nextHeading, inlineIdx);\
+    else if (nextHeading > -1) cutoff = nextHeading;\
+    else if (inlineIdx > -1) cutoff = inlineIdx;\
+\
+    var raw = (cutoff > -1 ? after.slice(0, cutoff) : after.slice(0, 1000)).trim();\
+    raw = raw.replace(/^[\\s\\S]*?(?=\\n?[A-Z][a-z].*\\s-\\s)/, '').trim();\
+    catchwords = raw.replace(/\\n+/g, ' ').replace(/\\s\{2,\}/g, ' ');\
+  \}\
+\}\
+\
+document.querySelectorAll('p, div, h1, h2, h3, h4, h5, h6, span').forEach(function(el) \{\
+  var t = (el.innerText||'').trim();\
+  if (t.indexOf('CATCHWORDS') !== 0) return;\
+  var top = Math.round(el.getBoundingClientRect().top + window.scrollY);\
+  if (top <= 0) return;\
+  if (catchwordsTop === 0 || top < catchwordsTop) catchwordsTop = top;\
+\});\
+\
+// ---------------------------------------------------------------------------\
+// 4. CAPTURE FRAME\
+// ---------------------------------------------------------------------------\
+var seenVals = new Set();\
+var capturedHeadings = [];\
+var capturedLiHTML = \{\};\
+var seenHeadings = \{\};\
+\
+function captureFrame() \{\
+  document.querySelectorAll('p').forEach(function(el) \{\
+    var raw = (el.innerHTML||'')\
+      .replace(/<br\\s*\\/?>/gi, ' ')\
+      .replace(/<[^>]+>/g, ' ')\
+      .replace(/&nbsp;/g, ' ')\
+      .replace(/&amp;/g, '&')\
+      .replace(/&#\\d+;/g, ' ')\
+      .replace(/&[a-z]+;/g, ' ');\
+    var text = normSP(raw);\
+    if (!text) return;\
+    var r = snapRect(el);\
+    if (!r) return;\
+    var key = text.slice(0, 50) + '@' + r.top;\
+    if (seenHeadings[key]) return;\
+    seenHeadings[key] = true;\
+    capturedHeadings.push(\{ text: text, top: r.top \});\
+  \});\
+\
+  document.querySelectorAll('li[value]').forEach(function(li) \{\
+    var val = parseInt(li.getAttribute('value'));\
+    var r = snapRect(li);\
+    if (!r) return;\
+    if (capturedLiHTML[val] && capturedLiHTML[val].top > 0) return;\
+    capturedLiHTML[val] = \{\
+      top: r.top,\
+      html: li.innerHTML || '',\
+      text: normSP(li.innerText || '')\
+    \};\
+  \});\
+\
+  // FIX v26: fallback for cases where paragraphs are not in li[value] elements\
+  // but in <p> elements whose text starts with the paragraph number (e.g. some\
+  // older HCA judgments rendered as flat <p> elements). Capture these into\
+  // the same capturedLiHTML map keyed by paragraph number.\
+  document.querySelectorAll('p').forEach(function(p) \{\
+    var text = normSP(p.innerText || '');\
+    if (!text) return;\
+    // Match paragraphs starting with a 1-3 digit number, optional period,\
+    // followed by whitespace and a capital letter (judgment text or judge name)\
+    var m = text.match(/^(\\d\{1,3\})\\.?\\s+[A-Z]/);\
+    if (!m) return;\
+    var val = parseInt(m[1]);\
+    if (val < 1 || val > 999) return;\
+    var r = snapRect(p);\
+    if (!r) return;\
+    if (capturedLiHTML[val] && capturedLiHTML[val].top > 0) return;\
+    capturedLiHTML[val] = \{\
+      top: r.top,\
+      html: p.innerHTML || '',\
+      text: text\
+    \};\
+  \});\
+\
+  document.querySelectorAll('.gloss-item').forEach(function(item) \{\
+    var citeSpan = item.querySelector('span.header-label');\
+    if (!citeSpan) return;\
+    var countMatch = citeSpan.textContent.match(/(\\d+)\\s+citation/);\
+    if (!countMatch) return;\
+    var count = parseInt(countMatch[1]);\
+    var styleTop = parseInt(item.style.top);\
+    if (isNaN(styleTop) || styleTop <= 0) return;\
+    var parent = item.offsetParent || item.parentElement;\
+    var parentOffsetTop = parent\
+      ? Math.round(parent.getBoundingClientRect().top + window.scrollY)\
+      : 0;\
+    var docTop = styleTop + parentOffsetTop;\
+    if (docTop <= 0) return;\
+\
+    // FIX v25: tag each gloss item with the nearest li[value] paragraph number,\
+    // so duplicates captured across multiple scroll frames (with slightly\
+    // different docTops due to DOM recycling) can be deduplicated at the end.\
+    var paraValue = findNearestParaValue(docTop);\
+\
+    rawGlossItems.push(\{\
+      top: docTop,\
+      count: count,\
+      paraValue: paraValue\
+    \});\
+  \});\
+\}\
+\
+// ---------------------------------------------------------------------------\
+// SCROLL PASS \'97 auto-tunes speed based on document length\
+// ---------------------------------------------------------------------------\
+function doScrollPass(callback) \{\
+  var docHeight = Math.max(\
+    document.body.scrollHeight, document.documentElement.scrollHeight,\
+    document.body.offsetHeight, document.documentElement.offsetHeight\
+  );\
+\
+  // Tune step size and delay based on document length\
+  // Short (<50k px): big steps, fast delay\
+  // Long (>150k px): small steps, slow delay\
+  var step, delay;\
+  if (docHeight < 50000) \{\
+    step = Math.floor(window.innerHeight * 0.6);\
+    delay = 30;\
+  \} else if (docHeight < 100000) \{\
+    step = Math.floor(window.innerHeight * 0.5);\
+    delay = 50;\
+  \} else \{\
+    step = Math.floor(window.innerHeight * 0.4);\
+    delay = 80;\
+  \}\
+\
+  console.log('Doc height: ' + docHeight + 'px \'97 using step=' + step + 'px, delay=' + delay + 'ms');\
+\
+  function getDocHeight() \{\
+    return Math.max(\
+      document.body.scrollHeight, document.documentElement.scrollHeight,\
+      document.body.offsetHeight, document.documentElement.offsetHeight\
+    );\
+  \}\
+\
+  function scrollDown() \{\
+    var currentPos = window.scrollY;\
+    var currentDocHeight = getDocHeight();\
+    if (currentPos + window.innerHeight < currentDocHeight - 10) \{\
+      window.scrollTo(0, currentPos + step);\
+      captureFrame();\
+      setTimeout(scrollDown, delay);\
+      return;\
+    \}\
+    window.scrollTo(0, currentDocHeight);\
+    captureFrame();\
+    setTimeout(scrollUp, delay);\
+  \}\
+\
+  function scrollUp() \{\
+    var currentPos = window.scrollY;\
+    if (currentPos > 0) \{\
+      window.scrollTo(0, Math.max(0, currentPos - step));\
+      captureFrame();\
+      setTimeout(scrollUp, delay);\
+      return;\
+    \}\
+    window.scrollTo(0, 0);\
+    setTimeout(callback, 200);\
+  \}\
+\
+  scrollDown();\
+\}\
+\
+captureFrame();\
+console.log('Scrolling through document to capture all paragraphs and citations...');\
+\
+doScrollPass(function() \{\
+\
+  window.scrollTo(0, 0);\
+\
+  // FIX v25: deduplicate rawGlossItems by paraValue + count. The same gloss\
+  // item may have been captured multiple times during the scroll pass (with\
+  // slightly different docTop values due to DOM recycling), but each truly\
+  // distinct gloss item belongs to exactly one paragraph and has one count.\
+  var preDedupCount = rawGlossItems.length;\
+  var glossByKey = \{\};\
+  rawGlossItems.forEach(function(g) \{\
+    // If paraValue is null (no nearby li when captured), fall back to docTop\
+    var key = g.paraValue !== null\
+      ? 'p' + g.paraValue + '_' + g.count\
+      : 'd' + Math.round(g.top / 10) + '_' + g.count;\
+    if (!glossByKey[key]) \{\
+      glossByKey[key] = g;\
+    \} else \{\
+      // Keep the one with a valid paraValue if possible\
+      if (glossByKey[key].paraValue === null && g.paraValue !== null) \{\
+        glossByKey[key] = g;\
+      \}\
+    \}\
+  \});\
+  rawGlossItems = Object.keys(glossByKey).map(function(k) \{ return glossByKey[k]; \});\
+  console.log('Gloss items: ' + preDedupCount + ' captured -> ' + rawGlossItems.length + ' after dedup');\
+\
+  Object.keys(capturedLiHTML).forEach(function(valStr) \{\
+    var val = parseInt(valStr);\
+    if (seenVals.has(val)) return;\
+    seenVals.add(val);\
+    var data = capturedLiHTML[val];\
+    allLis.push(\{ top: data.top, paraNum: val, text: data.text \});\
+  \});\
+  allLis.sort(function(a, b) \{ return a.top - b.top; \});\
+\
+  // -------------------------------------------------------------------------\
+  // 5. JUDGMENT AUTHORS\
+  // -------------------------------------------------------------------------\
+  var pJudgeMap = [];\
+\
+  function registerJudge(judgeStr, top, el) \{\
+    for (var i = 0; i < pJudgeMap.length; i++) \{\
+      if (pJudgeMap[i].judge === judgeStr) return;\
+    \}\
+    pJudgeMap.push(\{ judge: judgeStr, top: top, el: el || null \});\
+  \}\
+\
+  function isBenchListing(parsed) \{\
+    for (var i = 0; i < ALL_JUDGES.length; i++) \{\
+      if (parsed.after.indexOf(ALL_JUDGES[i]) === 0) return true;\
+    \}\
+    var matchCount = 0;\
+    for (var j = 0; j < ALL_JUDGES.length; j++) \{\
+      if (parsed.after.indexOf(ALL_JUDGES[j]) !== -1) matchCount++;\
+      if (matchCount >= 2) return true;\
+    \}\
+    return false;\
+  \}\
+\
+  document.querySelectorAll('p').forEach(function(el) \{\
+    var raw = (el.innerHTML||'')\
+      .replace(/<br\\s*\\/?>/gi, ' ')\
+      .replace(/<[^>]+>/g, ' ')\
+      .replace(/&nbsp;/g, ' ')\
+      .replace(/&amp;/g, '&')\
+      .replace(/&#\\d+;/g, ' ')\
+      .replace(/&[a-z]+;/g, ' ');\
+    var text = normSP(raw);\
+    if (!text) return;\
+    var r = snapRect(el);\
+    var top = r ? r.top : 0;\
+    if (catchwordsTop > 0 && top > 0 && top < catchwordsTop) return;\
+    // FIX v26: strip leading paragraph number (e.g. "1 GLEESON CJ." -> "GLEESON CJ.")\
+    var textForParse = text.replace(/^\\d\{1,3\}\\.?\\s+/, '');\
+    var parsed = parseJudgeHeading(textForParse);\
+    if (!parsed) return;\
+    if (isBenchListing(parsed)) return;\
+    registerJudge(formatJudge(parsed.names, parsed.title), top, el);\
+  \});\
+\
+  capturedHeadings.forEach(function(h) \{\
+    if (catchwordsTop > 0 && h.top < catchwordsTop) return;\
+    // FIX v26: same leading-number strip for captured headings\
+    var textForParse = h.text.replace(/^\\d\{1,3\}\\.?\\s+/, '');\
+    var parsed = parseJudgeHeading(textForParse);\
+    if (!parsed) return;\
+    if (isBenchListing(parsed)) return;\
+    registerJudge(formatJudge(parsed.names, parsed.title), h.top, null);\
+  \});\
+\
+  document.querySelectorAll('li[value]').forEach(function(li) \{\
+    var raw = (li.innerHTML||'')\
+      .replace(/<br\\s*\\/?>/gi, ' ')\
+      .replace(/<[^>]+>/g, ' ')\
+      .replace(/&nbsp;/g, ' ')\
+      .replace(/&amp;/g, '&')\
+      .replace(/&lt;/g, '<')\
+      .replace(/&gt;/g, '>')\
+      .replace(/&#\\d+;/g, ' ')\
+      .replace(/&[a-z]+;/g, ' ');\
+    var text = normSP(raw);\
+    if (!text) return;\
+    var r = snapRect(li);\
+    var top = r ? r.top : 0;\
+    var val = parseInt(li.getAttribute('value'));\
+\
+    var parsed = parseJudgeHeading(text);\
+    if (parsed) \{\
+      registerJudge(formatJudge(parsed.names, parsed.title), top, li);\
+      return;\
+    \}\
+\
+    var tail = text.slice(-30).replace(/^[^A-Z]+/, '');\
+    var tailParsed = parseJudgeHeading(tail);\
+    if (tailParsed) \{\
+      var nextLi = document.querySelector('li[value="' + (val + 1) + '"]');\
+      var nextR = nextLi ? snapRect(nextLi) : null;\
+      var nextTop = nextR ? nextR.top : top;\
+      if (nextTop > 0) \{\
+        registerJudge(formatJudge(tailParsed.names, tailParsed.title), nextTop, nextLi || li);\
+      \}\
+    \}\
+  \});\
+\
+  document.querySelectorAll('li[value] p').forEach(function(el) \{\
+    var text = normSP(el.innerText||'');\
+    if (!text) return;\
+    var r = snapRect(el);\
+    if (!r || r.top <= 0) return;\
+    var liR = snapRect(el.closest('li'));\
+    if (!liR) return;\
+    if (Math.abs(r.top - liR.top) > 50) return;\
+    var alreadyClaimed = pJudgeMap.some(function(pj) \{ return Math.abs(pj.top - r.top) < 100; \});\
+    if (alreadyClaimed) return;\
+    var parsed = parseJudgeHeading(text);\
+    if (!parsed) return;\
+    registerJudge(formatJudge(parsed.names, parsed.title), r.top, el);\
+  \});\
+\
+  var judgeIndexMap = \{\};\
+  var bnjTops = [];\
+  document.querySelectorAll('a[id*="sr.t_"]').forEach(function(el) \{\
+    var id = el.getAttribute('id') || '';\
+    var m = id.match(/sr\\.t_(.+?)_sr\\.x_(\\d+)/);\
+    if (!m) return;\
+    if (!ALL_JUDGES.some(function(j) \{ return m[1].indexOf(j) !== -1; \})) return;\
+    var r = snapRect(el);\
+    var t = r ? r.top : 0;\
+    if (bnjTops.indexOf(t) === -1) bnjTops.push(t);\
+  \});\
+  var bnjPositionsReliable = bnjTops.length > 1;\
+\
+  document.querySelectorAll('a[id*="sr.t_"]').forEach(function(el) \{\
+    var id = el.getAttribute('id') || '';\
+    var m = id.match(/sr\\.t_(.+?)_sr\\.x_(\\d+)/);\
+    if (!m) return;\
+    var label = m[1].trim();\
+    var idx = parseInt(m[2]);\
+    if (!ALL_JUDGES.some(function(j) \{ return label.indexOf(j) !== -1; \})) return;\
+    if (judgeIndexMap[idx]) return;\
+    var parsed = parseJudgeHeading(label.replace(/\\.$/, '') + ' X');\
+    if (!parsed) return;\
+    judgeIndexMap[idx] = \{ label: label, names: parsed.names, title: parsed.title \};\
+\
+    if (bnjPositionsReliable) \{\
+      var r = snapRect(el);\
+      var top = r ? r.top : 0;\
+      if (top > 0) \{\
+        registerJudge(parsed.names.join(', ') + ' ' + parsed.title, top);\
+      \}\
+    \}\
+  \});\
+\
+  var idxKeys = Object.keys(judgeIndexMap).map(Number).sort(function(a,b)\{return a-b;\});\
+\
+  var detectedAfterPass3 = [];\
+  pJudgeMap.forEach(function(pj) \{\
+    pj.judge.split(/,\\s*/).forEach(function(n) \{\
+      var clean = n.replace(/\\s+(?:CJ|ACJ|JJ?|JA)\\.?/g,'').trim().toUpperCase();\
+      if (detectedAfterPass3.indexOf(clean) === -1) detectedAfterPass3.push(clean);\
+    \});\
+  \});\
+  var stillMissing = benchNames.filter(function(n) \{\
+    return detectedAfterPass3.indexOf(n.toUpperCase()) === -1;\
+  \});\
+\
+  var gapFilledJudges = [];\
+  if (idxKeys.length > 0 && !bnjPositionsReliable && stillMissing.length > 0) \{\
+    var minIdx = idxKeys[0];\
+    var maxIdx = idxKeys[idxKeys.length - 1];\
+\
+    var accountedNames = [];\
+    idxKeys.forEach(function(idx) \{\
+      judgeIndexMap[idx].names.forEach(function(n) \{ accountedNames.push(n.toUpperCase()); \});\
+    \});\
+    pJudgeMap.forEach(function(pj) \{\
+      pj.judge.split(/,\\s*/).forEach(function(n) \{\
+        var clean = n.replace(/\\s+(?:CJ|ACJ|JJ?|JA)\\.?/g,'').trim().toUpperCase();\
+        if (accountedNames.indexOf(clean) === -1) accountedNames.push(clean);\
+      \});\
+    \});\
+\
+    var missingBench = benchNames.filter(function(n) \{\
+      return accountedNames.indexOf(n.toUpperCase()) === -1;\
+    \});\
+\
+    var missingIdx = 0;\
+    for (var idx = minIdx; idx <= maxIdx && missingIdx < missingBench.length; idx++) \{\
+      if (!judgeIndexMap[idx]) \{\
+        var name = missingBench[missingIdx++];\
+        var title = (name === benchNames[0] && benchNames.length > 1) ? 'CJ' : 'J';\
+        judgeIndexMap[idx] = \{ label: name + ' ' + title, names: [name], title: title \};\
+      \}\
+    \}\
+\
+    var judgeSequence = Object.keys(judgeIndexMap).map(Number).sort(function(a,b)\{return a-b;\})\
+      .map(function(idx)\{ return judgeIndexMap[idx]; \});\
+\
+    judgeSequence.forEach(function(jd, seqIdx) \{\
+      var judgeStr = jd.names.join(', ') + ' ' + jd.title;\
+      var alreadyFound = pJudgeMap.some(function(pj) \{\
+        return jd.names.every(function(n) \{\
+          return pj.judge.toUpperCase().indexOf(n.toUpperCase()) !== -1;\
+        \});\
+      \});\
+      if (alreadyFound) return;\
+      var srIdx = Object.keys(judgeIndexMap).map(Number).sort(function(a,b)\{return a-b;\})[seqIdx];\
+\
+      var knownIdxs = [];\
+      pJudgeMap.forEach(function(pj) \{\
+        Object.keys(judgeIndexMap).forEach(function(k) \{\
+          var ki = parseInt(k);\
+          var jd2 = judgeIndexMap[ki];\
+          if (jd2 && jd2.names.every(function(n)\{\
+            return pj.judge.toUpperCase().indexOf(n.toUpperCase()) !== -1;\
+          \})) \{\
+            knownIdxs.push(\{ idx: ki, top: pj.top \});\
+          \}\
+        \});\
+      \});\
+      knownIdxs.sort(function(a,b)\{ return a.idx - b.idx; \});\
+\
+      var prevKnown = null, nextKnown = null;\
+      for (var ki = 0; ki < knownIdxs.length; ki++) \{\
+        if (knownIdxs[ki].idx < srIdx) prevKnown = knownIdxs[ki];\
+        if (knownIdxs[ki].idx > srIdx && !nextKnown) nextKnown = knownIdxs[ki];\
+      \}\
+\
+      var syntheticTop;\
+      if (prevKnown && nextKnown) \{\
+        syntheticTop = Math.round((prevKnown.top + nextKnown.top) / 2);\
+      \} else if (prevKnown) \{\
+        syntheticTop = prevKnown.top + 5000;\
+      \} else if (nextKnown) \{\
+        syntheticTop = Math.max(0, nextKnown.top - 10000);\
+      \} else \{\
+        syntheticTop = srIdx * 10000;\
+      \}\
+      gapFilledJudges.push(judgeStr);\
+      registerJudge(judgeStr, syntheticTop);\
+    \});\
+  \}\
+\
+  var suppressBelow = catchwordsTop > 0 ? catchwordsTop : 0;\
+  pJudgeMap = pJudgeMap.filter(function(pj) \{ return pj.top >= suppressBelow; \});\
+  pJudgeMap.sort(function(a, b) \{\
+    if (a.top !== b.top) return a.top - b.top;\
+    if (a.el && b.el) \{\
+      var pos = a.el.compareDocumentPosition(b.el);\
+      if (pos & Node.DOCUMENT_POSITION_FOLLOWING) return -1;\
+      if (pos & Node.DOCUMENT_POSITION_PRECEDING) return 1;\
+    \}\
+    return 0;\
+  \});\
+\
+  console.log('Judgment authors found:');\
+  pJudgeMap.forEach(function(p) \{ console.log('  ' + p.judge + ' @ ' + p.top + 'px'); \});\
+\
+  var judgmentTotals = \{\};\
+  pJudgeMap.forEach(function(pj) \{ judgmentTotals[pj.judge] = 0; \});\
+\
+  var paraMap = [];\
+  var allLisByNum = allLis.slice().sort(function(a, b) \{ return a.paraNum - b.paraNum; \});\
+\
+  var judgeChanges = [\{ fromPara: 0, judge: pJudgeMap.length > 0 ? pJudgeMap[0].judge : 'Unknown' \}];\
+\
+  pJudgeMap.forEach(function(pj, jIdx) \{\
+    if (jIdx === 0) return;\
+    var candidate = null;\
+    allLisByNum.forEach(function(li) \{\
+      if (li.top <= 0) return;\
+      if (li.top >= pj.top) \{\
+        if (!candidate || li.top < candidate.top) candidate = li;\
+      \}\
+    \});\
+    if (!candidate) return;\
+    var prevVisible = null;\
+    allLisByNum.forEach(function(li) \{\
+      if (li.top <= 0) return;\
+      if (li.top < pj.top) \{\
+        if (!prevVisible || li.top > prevVisible.top) prevVisible = li;\
+      \}\
+    \});\
+    var boundaryPara;\
+    var wasInterpolated = false;\
+    if (prevVisible && candidate && candidate.paraNum > prevVisible.paraNum + 1) \{\
+      var pixelRange = candidate.top - prevVisible.top;\
+      var paraRange = candidate.paraNum - prevVisible.paraNum;\
+      if (pixelRange > 0) \{\
+        var fraction = (pj.top - prevVisible.top) / pixelRange;\
+        fraction = Math.max(0, Math.min(1, fraction));\
+        boundaryPara = prevVisible.paraNum + Math.round(paraRange * fraction);\
+        if (boundaryPara <= prevVisible.paraNum) boundaryPara = prevVisible.paraNum + 1;\
+        wasInterpolated = true;\
+      \} else \{\
+        boundaryPara = prevVisible.paraNum + 1;\
+      \}\
+    \} else if (candidate) \{\
+      boundaryPara = candidate.paraNum;\
+    \} else if (prevVisible) \{\
+      boundaryPara = prevVisible.paraNum + 1;\
+    \} else \{\
+      return;\
+    \}\
+    var last = judgeChanges[judgeChanges.length - 1];\
+    if (boundaryPara > last.fromPara) \{\
+      judgeChanges.push(\{\
+        fromPara: boundaryPara,\
+        judge: pj.judge,\
+        interpolated: wasInterpolated,\
+        gapInfo: wasInterpolated && prevVisible && candidate\
+          ? 'between visible paras ' + prevVisible.paraNum + ' and ' + candidate.paraNum\
+          : null\
+      \});\
+    \}\
+  \});\
+\
+  allLisByNum.forEach(function(li) \{\
+    var judge = judgeChanges[0].judge;\
+    for (var i = 0; i < judgeChanges.length; i++) \{\
+      if (li.paraNum >= judgeChanges[i].fromPara) judge = judgeChanges[i].judge;\
+      else break;\
+    \}\
+    paraMap.push(\{ num: li.paraNum, top: li.top, text: li.text.slice(0, 200), judge: judge \});\
+  \});\
+\
+  var knownParaNums = \{\};\
+  paraMap.forEach(function(p) \{ knownParaNums[p.num] = true; \});\
+  var maxParaNum = paraMap.reduce(function(m, p) \{ return Math.max(m, p.num); \}, 0);\
+  for (var pn = 1; pn <= maxParaNum; pn++) \{\
+    if (knownParaNums[pn]) continue;\
+    var judge = judgeChanges[0].judge;\
+    for (var i = 0; i < judgeChanges.length; i++) \{\
+      if (pn >= judgeChanges[i].fromPara) judge = judgeChanges[i].judge;\
+      else break;\
+    \}\
+    paraMap.push(\{ num: pn, top: 0, text: '', judge: judge \});\
+  \}\
+  paraMap.sort(function(a, b) \{ return a.num - b.num; \});\
+\
+  // -------------------------------------------------------------------------\
+  // 6. MATCH CITATIONS\
+  // -------------------------------------------------------------------------\
+  // FIX v25: prefer paraValue-based matching when available (direct lookup),\
+  // fall back to position-based matching for items without a paraValue.\
+  var paraByNum = \{\};\
+  paraMap.forEach(function(p) \{ paraByNum[p.num] = p; \});\
+\
+  var paraCitationMap = \{\};\
+\
+  // Position-based matching fallback uses anchors\
+  var paraByNumWithTop = \{\};\
+  paraMap.forEach(function(p) \{ if (p.top > 0) paraByNumWithTop[p.num] = p; \});\
+  var maxParaNum2 = paraMap.reduce(function(m, p) \{ return Math.max(m, p.num); \}, 0);\
+\
+  var anchors = [];\
+  var pn2 = 1;\
+  while (pn2 <= maxParaNum2) \{\
+    if (paraByNumWithTop[pn2]) \{\
+      var p2 = paraByNumWithTop[pn2];\
+      anchors.push(\{ top: p2.top, paraNum: pn2, judge: p2.judge, isGap: false \});\
+      pn2++;\
+    \} else \{\
+      var gapStartPn = pn2;\
+      var gapJudge = judgeChanges[0].judge;\
+      for (var ci = 0; ci < judgeChanges.length; ci++) \{\
+        if (gapStartPn >= judgeChanges[ci].fromPara) gapJudge = judgeChanges[ci].judge;\
+        else break;\
+      \}\
+      var prevP = paraByNumWithTop[pn2 - 1];\
+      var gapTop = prevP ? prevP.top : 0;\
+      anchors.push(\{ top: gapTop, paraNum: gapStartPn, judge: gapJudge, isGap: true \});\
+      while (pn2 <= maxParaNum2 && !paraByNumWithTop[pn2]) pn2++;\
+    \}\
+  \}\
+\
+  anchors.sort(function(a, b) \{\
+    if (a.top !== b.top) return a.top - b.top;\
+    return a.paraNum - b.paraNum;\
+  \});\
+\
+  rawGlossItems.forEach(function(gd) \{\
+    // FIX v25: if gloss has paraValue, attribute directly to that paragraph\
+    if (gd.paraValue !== null && paraByNum[gd.paraValue]) \{\
+      paraCitationMap[gd.paraValue] = (paraCitationMap[gd.paraValue] || 0) + gd.count;\
+      return;\
+    \}\
+\
+    // Fallback: position-based matching against anchors\
+    var matched = null;\
+    var UPWARD_TOLERANCE = 60;\
+\
+    for (var i = 0; i < anchors.length; i++) \{\
+      var a = anchors[i];\
+      if (a.top <= 0) continue;\
+      var delta = gd.top - a.top;\
+      if (delta < -UPWARD_TOLERANCE) continue;\
+      var dist = Math.abs(delta);\
+      if (!matched || dist < matched.dist) \{\
+        matched = \{ anchor: a, dist: dist \};\
+      \}\
+    \}\
+\
+    if (!matched) return;\
+    var anchor = matched.anchor;\
+\
+    if (anchor.isGap) \{\
+      if (judgmentTotals.hasOwnProperty(anchor.judge)) \{\
+        judgmentTotals[anchor.judge] += gd.count;\
+      \}\
+    \} else \{\
+      paraCitationMap[anchor.paraNum] = (paraCitationMap[anchor.paraNum] || 0) + gd.count;\
+    \}\
+  \});\
+\
+  paraMap.forEach(function(p) \{\
+    var citations = paraCitationMap[p.num] || 0;\
+    if (!citations) return;\
+    if (judgmentTotals.hasOwnProperty(p.judge)) \{\
+      judgmentTotals[p.judge] += citations;\
+    \}\
+    if (citations >= THRESHOLD) \{\
+      var already = results.some(function(r) \{ return r.para === p.num; \});\
+      if (!already) \{\
+        results.push(\{ para: p.num, judge: p.judge, citations: citations, snippet: p.text \});\
+      \}\
+    \}\
+  \});\
+\
+  results.sort(function(a, b) \{ return b.citations - a.citations; \});\
+\
+  pJudgeMapSorted = pJudgeMap.slice().sort(function(a, b) \{\
+    return (judgmentTotals[b.judge] || 0) - (judgmentTotals[a.judge] || 0);\
+  \});\
+\
+  // -------------------------------------------------------------------------\
+  // 7. OUTPUT\
+  // -------------------------------------------------------------------------\
+  var interpolatedJudges = \{\};\
+  judgeChanges.forEach(function(jc) \{\
+    if (jc.interpolated) \{\
+      interpolatedJudges[jc.judge] = jc.gapInfo || 'interpolated';\
+    \}\
+  \});\
+\
+  var tsvRows = [\
+    'Citation\\t' + citation,\
+    '',\
+    'Catchwords\\t' + catchwords.replace(/\\t/g,' '),\
+    '',\
+    'Bench (all judges)\\t' + benchNames.join(', '),\
+    ''\
+  ];\
+\
+  var interpolatedList = Object.keys(interpolatedJudges);\
+  if (interpolatedList.length > 0) \{\
+    tsvRows.push('\\u26a0 Note: paragraph ranges for the following judges are estimated by interpolation:');\
+    interpolatedList.forEach(function(j) \{\
+      tsvRows.push('  - ' + j + ' (' + interpolatedJudges[j] + ')');\
+    \});\
+    tsvRows.push('');\
+  \}\
+\
+  tsvRows.push('Judgment authors\\tJudgment\\tTotal citations\\tParagraphs');\
+\
+  var judgeParagraphs = \{\};\
+  pJudgeMap.forEach(function(pj) \{ judgeParagraphs[pj.judge] = []; \});\
+  paraMap.forEach(function(p) \{\
+    if (judgeParagraphs.hasOwnProperty(p.judge)) judgeParagraphs[p.judge].push(p.num);\
+  \});\
+\
+  function toRangeStr(nums) \{\
+    if (!nums || nums.length === 0) return '';\
+    nums = nums.slice().sort(function(a,b)\{ return a-b; \});\
+    var ranges = [];\
+    var start = nums[0], end = nums[0];\
+    for (var i = 1; i < nums.length; i++) \{\
+      if (nums[i] === end + 1) \{ end = nums[i]; \}\
+      else \{\
+        ranges.push(start === end ? String(start) : start + '-' + end);\
+        start = end = nums[i];\
+      \}\
+    \}\
+    ranges.push(start === end ? String(start) : start + '-' + end);\
+    return ranges.join(', ');\
+  \}\
+\
+  var detectedJudges = pJudgeMapSorted.map(function(p) \{ return p.judge; \});\
+  pJudgeMapSorted.forEach(function(p) \{\
+    var paraRange = toRangeStr(judgeParagraphs[p.judge] || []);\
+    if (interpolatedJudges[p.judge]) paraRange = paraRange + ' *';\
+    tsvRows.push(p.judge + '\\tSeparate judgment\\t' + judgmentTotals[p.judge] + '\\t' + paraRange);\
+  \});\
+\
+  benchNames.forEach(function(name) \{\
+    var normalName = name.trim().toUpperCase();\
+    var alreadyListed = detectedJudges.some(function(dj) \{\
+      return dj.toUpperCase().indexOf(normalName) !== -1;\
+    \});\
+    if (!alreadyListed) \{\
+      tsvRows.push(name + '\\tNo separate judgment\\t0\\t');\
+    \}\
+  \});\
+\
+  tsvRows.push('');\
+  tsvRows.push('Paragraph\\tJudge\\tCitations\\tSnippet');\
+  results.forEach(function(r) \{\
+    tsvRows.push(r.para + '\\t' + r.judge + '\\t' + r.citations + '\\t' + r.snippet.replace(/\\t/g,' '));\
+  \});\
+\
+  var tsvString = tsvRows.join('\\n');\
+\
+  console.log('--- TSV OUTPUT ---');\
+  console.log(tsvString);\
+  console.log('--- END TSV ---');\
+\
+  var overlay = document.createElement('div');\
+  overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:999999;display:flex;flex-direction:column;align-items:center;justify-content:center;';\
+\
+  var box = document.createElement('div');\
+  box.style.cssText = 'background:#fff;border-radius:8px;padding:20px;width:80%;max-width:900px;display:flex;flex-direction:column;gap:10px;';\
+\
+  var label = document.createElement('div');\
+  label.style.cssText = 'font-family:sans-serif;font-size:14px;font-weight:bold;color:#333;';\
+  label.textContent = 'Select all and copy (Ctrl+A, Ctrl+C), then close.';\
+\
+  var ta = document.createElement('textarea');\
+  ta.value = tsvString;\
+  ta.style.cssText = 'width:100%;height:300px;font-family:monospace;font-size:11px;border:1px solid #ccc;padding:8px;box-sizing:border-box;resize:vertical;';\
+\
+  var closeBtn = document.createElement('button');\
+  closeBtn.textContent = 'Close';\
+  closeBtn.style.cssText = 'align-self:flex-end;padding:8px 20px;font-size:14px;cursor:pointer;background:#333;color:#fff;border:none;border-radius:4px;';\
+  closeBtn.onclick = function() \{ document.body.removeChild(overlay); \};\
+\
+  var clipMsg = document.createElement('div');\
+  clipMsg.style.cssText = 'font-family:sans-serif;font-size:12px;color:#666;';\
+  clipMsg.textContent = 'Attempting to copy automatically...';\
+\
+  box.appendChild(label);\
+  box.appendChild(ta);\
+  box.appendChild(clipMsg);\
+  box.appendChild(closeBtn);\
+  overlay.appendChild(box);\
+  document.body.appendChild(overlay);\
+\
+  ta.focus();\
+  ta.select();\
+\
+  if (navigator.clipboard && navigator.clipboard.writeText) \{\
+    navigator.clipboard.writeText(tsvString).then(function() \{\
+      clipMsg.textContent = '\\u2713 Copied to clipboard automatically! You can close this.';\
+      clipMsg.style.color = 'green';\
+    \}).catch(function() \{\
+      clipMsg.textContent = 'Auto-copy failed \'97 please select all and copy manually (Ctrl+A, Ctrl+C).';\
+    \});\
+  \} else \{\
+    clipMsg.textContent = 'Auto-copy not available \'97 please select all and copy manually (Ctrl+A, Ctrl+C).';\
+  \}\
+\
+  console.log('\\u2713 Citation: ' + citation);\
+  console.log('\\u2713 Bench: ' + benchNames.join(', '));\
+  console.log('\\u2713 Authors: ' + pJudgeMapSorted.map(function(p) \{\
+    return p.judge + ' (' + judgmentTotals[p.judge] + ')';\
+  \}).join(' | '));\
+  console.log('\\u2713 Found ' + results.length + ' paragraphs with ' + THRESHOLD + '+ citations. Copied \\u2014 paste into the Case Database widget.');\
+  if (interpolatedList.length > 0) \{\
+    console.warn('\\u26a0 Interpolated boundaries (verify manually):');\
+    interpolatedList.forEach(function(j) \{ console.warn('  ' + j + ' \\u2014 ' + interpolatedJudges[j]); \});\
+  \}\
+\
+  window._jade_debug = \{\
+    paraCitationMap: paraCitationMap,\
+    anchors: anchors,\
+    paraMap: paraMap,\
+    judgeChanges: judgeChanges,\
+    pJudgeMap: pJudgeMap,\
+    rawGlossItems: rawGlossItems\
+  \};\
+\
+\}); // end doScrollPass callback\
+\
+\})();\
+}
